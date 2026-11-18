@@ -1,0 +1,3 @@
+ALTER TABLE rooms ADD COLUMN owner_hash TEXT;
+ALTER TABLE rooms ADD COLUMN photo_key TEXT;
+ALTER TABLE room_members ADD COLUMN managed INTEGER NOT NULL DEFAULT 0;

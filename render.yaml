@@ -1,0 +1,22 @@
+# Free demonstration service. Supabase stores all persistent application data.
+services:
+  - type: web
+    name: dt-sniper
+    runtime: docker
+    plan: free
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: REQUIRE_REMOTE_DB
+        value: "true"
+      - key: DATABASE_URL
+        sync: false
+      - key: KAKAO_TRANSIT_REST_API_KEY
+        sync: false
+      - key: KAKAO_TRANSIT_DAILY_LIMIT
+        value: 200
+      - key: SHORTLIST_COUNT
+        value: 5
