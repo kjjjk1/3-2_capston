@@ -1,0 +1,15 @@
+{
+  "candidateCount": 30,
+  "candidateSpacingM": 180,
+  "accessRadiusM": 450,
+  "transferRadiusM": 150,
+  "hopWeight": 1,
+  "boardingWeight": 5,
+  "walkWeightPer100m": 1,
+  "headwayWeightPerMinute": 0.2,
+  "maxTransfers": 2,
+  "maxTotalIncreaseRatio": 0.3,
+  "dailyOdsayLimit": 100,
+  "duplicateWindowSeconds": 120,
+  "maxRoutes": 1000
+}

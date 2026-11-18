@@ -1,0 +1,1 @@
+export function createBucket(){const map=new Map();return{async put(key,bytes,options){map.set(key,{bytes:new Uint8Array(bytes),options});},async get(key){const v=map.get(key);return v?{body:v.bytes,httpMetadata:v.options?.httpMetadata}:null;},async delete(key){map.delete(key);}};}

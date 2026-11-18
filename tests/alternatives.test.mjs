@@ -1,0 +1,6 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import {resultAlternatives} from '../analysis/fairness.mjs';
+const row=(id,avg,max,std,projected,ok=true)=>({candidate:{id},summary:{average:avg,max,std},projectedStd:projected,eligible:ok,paths:[{status:ok?'verified':'unverified'}]});
+test('fairness and efficiency identify distinct verified candidates',()=>{assert.deepEqual(resultAlternatives([row('fair',30,40,1,2),row('fast',20,35,5,8)]),{fairnessId:'fair',efficiencyId:'fast'});});
+test('same winner and incomplete data do not invent an alternative',()=>{assert.deepEqual(resultAlternatives([row('one',20,25,2,3),row('partial',1,2,0,0,false)]),{fairnessId:'one',efficiencyId:'one'});assert.deepEqual(resultAlternatives([]),{fairnessId:null,efficiencyId:null});});
+test('casual meetings compare current time spread rather than accumulated burden',()=>{assert.equal(resultAlternatives([row('current',30,32,1,99),row('past',20,40,5,0)],false).fairnessId,'current');});
+test('ties are deterministic and efficiency prioritizes the shorter maximum',()=>{const rows=[row('b',20,35,3,2),row('a',20,30,3,2)];assert.deepEqual(resultAlternatives(rows),{fairnessId:'a',efficiencyId:'a'});assert.deepEqual(resultAlternatives([...rows].reverse()),resultAlternatives(rows));});
