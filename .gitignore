@@ -1,0 +1,13 @@
+.env
+data/*.sqlite*
+data/photos/
+dist/
+node_modules/
+
+data/raw/
+__pycache__/
+.env.*
+!.env.example
+backup-before-*/
+kakao-check-*.json
+*.log
