@@ -11,6 +11,6 @@
  unverified:['확인 필요','neutral','아직 모든 경로를 확인하지 못했어요','일부 경로를 확인하지 못해 전체 평균과 공정성을 판단할 수 없어요.']};
  const fairness=f=>{const v=states[f?.status]||states.unverified;return {badge:v[0],tone:v[1],title:v[2],description:v[3]};};
  const shortPlaceName=value=>{const chars=Array.from(String(value??''));return chars.length>=5?chars.slice(0,5).join('')+'...':chars.join('');};
- const timeExtremes=paths=>{const times=paths.filter(p=>p.status==='verified'&&Number.isFinite(p.expectedMinutes)).map(p=>p.expectedMinutes);const min=Math.min(...times),max=Math.max(...times);return paths.map(p=>p.status!=='verified'||!Number.isFinite(p.expectedMinutes)||times.length<2||max===min?'':p.expectedMinutes===max?'longest':p.expectedMinutes===min?'shortest':'');};
+ const timeExtremes=paths=>{const times=paths.filter(p=>['verified','estimated'].includes(p.status)&&Number.isFinite(p.expectedMinutes)).map(p=>p.expectedMinutes);const min=Math.min(...times),max=Math.max(...times);return paths.map(p=>!['verified','estimated'].includes(p.status)||!Number.isFinite(p.expectedMinutes)||times.length<2||max===min?'':p.expectedMinutes===max?'longest':p.expectedMinutes===min?'shortest':'');};
  window.DTUI={minute,burden,fairness,shortPlaceName,timeExtremes};
 })();

@@ -62,3 +62,19 @@ export function createPostgresBucket(DB){return {
  async get(key){const value=await DB.prepare('SELECT body FROM photo_objects WHERE key=?').bind(key).first();return value?{body:value.body}:null;},
  async delete(key){await DB.prepare('DELETE FROM photo_objects WHERE key=?').bind(key).run();}
 };}
+
+// Never log the raw error/message: it may contain credentials or SQL values.
+export function databaseDiagnostic(error){
+ const code=typeof error?.code==='string'&&/^[A-Z0-9_]{1,40}$/.test(error.code)?error.code:'UNKNOWN';
+ const message=String(error?.message||'');
+ let reason='Database connection or schema initialization failed; check the pooler URI, password and certificate.';
+ if(['SELF_SIGNED_CERT_IN_CHAIN','DEPTH_ZERO_SELF_SIGNED_CERT','UNABLE_TO_VERIFY_LEAF_SIGNATURE','UNABLE_TO_GET_ISSUER_CERT_LOCALLY','CERT_HAS_EXPIRED','ERR_TLS_CERT_ALTNAME_INVALID'].includes(code)||/certificate|self.signed/i.test(message))reason='TLS certificate verification failed. Set DATABASE_SSL_CA to the PEM root certificate from Supabase Database settings.';
+ else if(code==='28P01'||/password authentication failed/i.test(message))reason='Database password authentication failed. Check the database password and URL encoding.';
+ else if(/tenant or user not found/i.test(message))reason='Pooler user/project mismatch. Copy the exact Session pooler URI from Supabase Connect.';
+ else if(code==='ENOTFOUND'||code==='EAI_AGAIN')reason='Database hostname could not be resolved. Check the full Session pooler hostname.';
+ else if(['ETIMEDOUT','ECONNREFUSED','ENETUNREACH','EHOSTUNREACH'].includes(code)||/timeout/i.test(message))reason='Database network connection failed. Check project status, network restrictions and Session pooler port 5432.';
+ else if(code==='42501')reason='Database role cannot initialize the private application schema. Use the project owner connection from Supabase Connect.';
+ else if(code==='ERR_INVALID_URL'||/must be a PostgreSQL connection string/i.test(message))reason='DATABASE_URL is not a complete PostgreSQL URI. Copy the full postgresql:// connection string.';
+ else if(/unsupported.*(?:options|startup)|invalid.*search_path/i.test(message))reason='Pooler rejected connection options. Confirm Session pooler mode on port 5432.';
+ return {event:'database_startup_failed',code,reason};
+}

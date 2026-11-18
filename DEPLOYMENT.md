@@ -19,7 +19,7 @@ github-upload 폴더 **안의 내용 전체**를 기존 저장소의 루트에 �
 
 1. https://dashboard.render.com 에 로그인하고 New → Blueprint에서 GitHub 저장소를 연결합니다.
 2. 서비스 plan이 **Free**, 디스크가 **없음**인지 확인합니다. 이미 유료 서비스를 만든 경우 YAML 업로드만으로 요금제 변경이 완료됐다고 가정하지 말고 관리 화면의 실제 요금제·디스크를 확인합니다.
-3. 요청되는 DATABASE_URL에 Supabase의 Session pooler 연결 문자열을 입력합니다. KAKAO_TRANSIT_REST_API_KEY에는 대중교통 경로 키를 입력합니다.
+3. 요청되는 DATABASE_URL에 Supabase의 Session pooler 연결 문자열을 입력합니다. 경로 API 키는 아직 없어도 배포할 수 있습니다. 키 등록 전 ON 분석은 차단되며 OFF를 직접 선택하면 자체 추정으로 시연할 수 있습니다.
 4. Environment에서 DATABASE_SSL_CA에 위 인증서의 전체 PEM 텍스트를 추가합니다. ODsay를 사용하려면 ODSAY_API_KEY와 ODSAY_DAILY_LIMIT도 추가합니다. 장소 검색이 필요하면 KAKAO_LOCAL_REST_API_KEY도 추가합니다.
 5. 배포 후 https://서비스명.onrender.com 에 접속합니다. PUBLIC_ORIGIN은 기본 Render 도메인에서는 자동 처리됩니다. 자체 도메인이면 PUBLIC_ORIGIN=https://자체도메인 을 지정합니다.
 6. /healthz가 {"status":"ok"}인지 확인하고 휴대폰 두 대에서 참여·출발지 입력·분석·확정·기록 저장을 확인합니다.
@@ -44,3 +44,14 @@ Render Free는 15분간 미사용 시 절전되고 다음 접속 때 시작 지�
 PostgreSQL 엔진(PGlite)에서 마이그레이션, 재실행, 트랜잭션 롤백, 사진 저장, 모임 참여, 경로 API 모의 응답 분석, 확정, 기록 삭제를 검사했습니다. 기존 로컬 서버 재시작 테스트도 수행합니다. 실제 Supabase 계정/네트워크/TLS 연결과 Render Docker 배포는 프로젝트 생성 후 확인해야 합니다. 검증 과정에서 실제 대중교통 API 호출은 하지 않습니다.
 
 공식 안내: https://supabase.com/docs/guides/database/connecting-to-postgres / https://render.com/docs/free
+
+## 경로 API ON/OFF
+
+모임 관리의 경로 API 검증 설정에서 선택합니다.
+
+- ON: Render Environment의 KAKAO_TRANSIT_REST_API_KEY 또는 ODSAY_API_KEY를 사용합니다. 선택한 공급자의 키가 없으면 오류를 안내하며 OFF나 다른 API로 자동 전환하지 않습니다.
+- OFF: 저장된 버스·지하철 교통망과 속도·도보·대기시간 가정으로 후보별 시간을 추정합니다. 외부 경로 API 요청과 사용량 차감은 0회입니다. 지도·장소 검색·서버·Supabase 연결까지 끄는 설정은 아닙니다.
+- 키는 시연 전날 Render → Environment → Add Environment Variable에서 등록하고 Save and deploy로 적용한 뒤 앱을 새로고침하면 됩니다. 클라이언트에 API 키를 입력하지 않습니다. 실제 API 사용은 앱에서 ON으로 분석할 때 발생합니다.
+- OFF의 경로 상태는 estimated이며 verified로 표시하지 않습니다. API로 검증되지 않은 노선별 상세 경로를 만들어 보여주지 않습니다.
+- 장소 확정 시 meeting_history.calculation_mode에 api/estimated를 저장합니다. 기존 기록은 api로 유지하고, 분석 임시 데이터가 정리돼도 출처 표시는 남습니다.
+- 자체 추정 정기 기록도 같은 방의 다음 누적 부담 계산에 반영됩니다. 결과와 기록 화면에서 자체 추정 포함 여부를 표시합니다. 예행연습 기록을 실제 시연의 시작 부담에서 제외하려면 다른 모임방에서 연습하거나 해당 기록을 삭제하세요.

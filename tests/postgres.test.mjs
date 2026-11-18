@@ -45,7 +45,12 @@ test('PostgreSQL supports participation, mocked route analysis, confirmation and
  const r=await call('/rooms/'+id+'/analysis','POST',{memberIds:members.map(m=>m.room.me.id),meetingType:'regular',provider:'kakao',mode:'버스만'},token);
  assert.equal(r.data.status,'verified',JSON.stringify(r.data));assert.equal(calls,r.data.shortlisted*4);
  const saved=await call('/rooms/'+id+'/confirm','POST',{runId:r.data.runId,candidateId:r.data.recommendedCandidateId},token);assert.equal(saved.status,201);
- const history=await call('/rooms/'+id+'/history','GET',undefined,token);assert.equal(history.data.meetings.length,1);assert.equal(history.data.meetings[0].records.length,4);
+ const history=await call('/rooms/'+id+'/history','GET',undefined,token);assert.equal(history.data.meetings.length,1);assert.equal(history.data.meetings[0].records.length,4);assert.equal(history.data.meetings[0].calculation_mode,'api');
  const deleted=await call('/rooms/'+id+'/history','DELETE',{all:true},undefined,owner);assert.equal(deleted.status,200);assert.equal(deleted.data.meetings.length,0);
  assert.equal((await call('/rooms/'+id)).data.members.length,4);
+ const beforeCalls=calls;delete env.KAKAO_TRANSIT_REST_API_KEY;
+ const off=await call('/rooms/'+id+'/analysis','POST',{memberIds:members.map(m=>m.room.me.id),meetingType:'regular',provider:'kakao',useApi:false},token);
+ assert.equal(off.data.status,'estimated');assert.equal(calls,beforeCalls);
+ assert.equal((await call('/rooms/'+id+'/confirm','POST',{runId:off.data.runId,candidateId:off.data.recommendedCandidateId},token)).status,201);
+ const offHistory=(await call('/rooms/'+id+'/history','GET',undefined,token)).data;assert.equal(offHistory.meetings[0].calculation_mode,'estimated');
 });

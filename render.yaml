@@ -14,8 +14,6 @@ services:
         value: "true"
       - key: DATABASE_URL
         sync: false
-      - key: KAKAO_TRANSIT_REST_API_KEY
-        sync: false
       - key: KAKAO_TRANSIT_DAILY_LIMIT
         value: 200
       - key: SHORTLIST_COUNT

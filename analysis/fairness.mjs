@@ -21,7 +21,7 @@ export function rankVerified(candidates, balances={}, regular=true, options={}) 
 }
 
 export function resultAlternatives(candidates,regular=true,targetId=null){
- const verified=candidates.filter(c=>c.eligible!==false&&c.summary&&c.paths?.length&&c.paths.every(p=>p.status==='verified')&&Number.isFinite(regular?c.projectedStd:c.summary.std));
+ const verified=candidates.filter(c=>c.eligible!==false&&c.summary&&c.paths?.length&&c.paths.every(p=>(p.status==='verified'||p.status==='estimated'&&Number.isFinite(p.expectedMinutes))&&p.status===c.paths[0].status)&&Number.isFinite(regular?c.projectedStd:c.summary.std));
  const tie=(a,b)=>a.candidate.id.localeCompare(b.candidate.id);
  const fairness=[...verified].sort((a,b)=>(regular?a.projectedStd-b.projectedStd:a.summary.std-b.summary.std)||a.summary.average-b.summary.average||tie(a,b))[0];
  const efficiency=[...verified].sort((a,b)=>a.summary.average-b.summary.average||a.summary.max-b.summary.max||(regular?a.projectedStd-b.projectedStd:a.summary.std-b.summary.std)||tie(a,b))[0];
@@ -29,7 +29,7 @@ export function resultAlternatives(candidates,regular=true,targetId=null){
 }
 
 export function rankPersonalCare(candidates,targetId){
- const valid=candidates.filter(c=>c.eligible!==false&&c.summary&&c.paths?.every(p=>p.status==='verified')&&c.paths.some(p=>p.memberId===targetId&&Number.isFinite(p.projected)&&Number.isFinite(p.past)));
+ const valid=candidates.filter(c=>c.eligible!==false&&c.summary&&c.paths?.every(p=>(p.status==='verified'||p.status==='estimated'&&Number.isFinite(p.expectedMinutes))&&p.status===c.paths[0].status)&&c.paths.some(p=>p.memberId===targetId&&Number.isFinite(p.projected)&&Number.isFinite(p.past)));
  if(!valid.length)return [];
  const target=c=>c.paths.find(p=>p.memberId===targetId),transfer=c=>Math.max(0,...c.paths.filter(p=>p.memberId!==targetId).map(p=>p.relative));
  if(target(valid[0]).past<=0)return [...valid].sort((a,b)=>a.projectedStd-b.projectedStd||a.summary.average-b.summary.average||a.candidate.id.localeCompare(b.candidate.id));
