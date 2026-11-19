@@ -1,0 +1,7 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import vm from 'node:vm';import {readFileSync} from 'node:fs';
+function helper(hostname='demo.onrender.com',protocol='https:'){const box={window:{},location:{hostname,protocol},Response,fetch:async()=>Response.json({ok:true})};vm.runInNewContext(readFileSync('api-client.js','utf8'),box);return box.window.DTApi;}
+test('HTML failure responses do not leak a JSON parse error',async()=>{const api=helper();await assert.rejects(api.readJSON(new Response('<html><head>Suspended</head></html>',{status:503,headers:{'Content-Type':'text/html'}})),e=>e.message.includes('서버가 중지')&&!e.message.includes('Unexpected token'));await assert.rejects(api.readJSON(new Response('<html>wrong route</html>')),e=>e.message.includes('올바른 응답'));});
+test('JSON API errors retain their status for safe demo resumption',async()=>{const api=helper();await assert.rejects(api.readJSON(Response.json({error:'모임 없음'},{status:404})),e=>e.status===404&&e.message==='모임 없음');assert.equal((await api.readJSON(Response.json({ready:true}))).ready,true);});
+test('GitHub Pages and file URLs explain the missing backend before attempting a mutation',async()=>{await assert.rejects(helper('user.github.io').requestJSON('/api/rooms',{method:'POST'}),/GitHub Pages/);await assert.rejects(helper('','file:').requestJSON('/api/rooms',{method:'POST'}),/직접 열면/);});
