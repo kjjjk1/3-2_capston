@@ -7,7 +7,7 @@ async function finalHistory(db,id){
  return {balances,meetings:meetings.map(({origin_snapshot_payload,...m})=>{let origins=[];try{origins=JSON.parse(origin_snapshot_payload||'{}').origins||[];}catch{}return {...m,records:records.filter(r=>r.meeting_id===m.id).map(r=>({...r,originStopName:origins.find(o=>o.memberId===r.member_id)?.stopName||null}))};})};
 }
 async function finalFingerprint(members,ids,history,mode){return hash(JSON.stringify({members:ids.map(id=>{const m=members.find(m=>m.id===id);return [id,m?.stop_id];}),history:history.meetings.map(m=>m.id),mode}));}
-function finalPublic(payload,me){const {retryPool,...publicPayload}=payload;return {...publicPayload,alternatives:resultAlternatives(payload.candidates,payload.regular,payload.targetMemberId),candidates:payload.candidates.map(c=>({...c,paths:c.paths.map(p=>({...p,segments:p.memberId===me?.id?p.segments:[],firstStationMatch:p.memberId===me?.id?p.firstStationMatch:null}))}))};}
+function finalPublic(payload,me){const {retryPool,...publicPayload}=payload;return {...publicPayload,alternatives:resultAlternatives(payload.candidates,payload.regular,payload.targetMemberId),candidates:payload.candidates.map(c=>({...c,paths:c.paths.map(p=>({...p,segments:p.segments||[],firstStationMatch:p.firstStationMatch??null}))}))};}
 async function finalRoutes(req,env){
  const url=new URL(req.url),db=env.DB;
  if(url.pathname==='/api/config'&&req.method==='GET'){
