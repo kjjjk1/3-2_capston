@@ -1,5 +1,7 @@
 # 무료 시연 서버: Render Free + Supabase Free
 
+GitHub Pages와 Render를 함께 사용할 때는 [DUAL-HOST-SETUP.md](DUAL-HOST-SETUP.md)의 두 링크 설정을 추가로 적용하세요. Pages에서도 저장·조회에는 Render가 실행 중이어야 합니다.
+
 화면과 추천 알고리즘은 그대로입니다. DATABASE_URL이 있으면 외부 PostgreSQL에 모임·개인별 출발지·분석 결과·이동 기록·사진을 저장합니다. 공개 링크는 Render에서 발급합니다. 기존 유료 Blueprint 대신 이 묶음의 render.yaml(plan: free, disk 없음)을 사용하세요.
 
 ## 1. Supabase 프로젝트 만들기

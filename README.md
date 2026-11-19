@@ -1,5 +1,7 @@
 # DT Sniper
 
+두 링크 연동 수정본입니다. GitHub Pages는 자체 추정만, Render는 경로 API ON/OFF를 지원하며 양쪽 모두 Render를 통해 같은 DB를 사용합니다. 업로드·환경설정·검증 범위는 [DUAL-HOST-SETUP.md](DUAL-HOST-SETUP.md)를 먼저 확인하세요.
+
 참여자별 출발지와 이전 누적 상대 부담을 고려해 모임 장소를 추천하는 웹 서비스입니다. 대중교통 경로 API 예상시간을 사용하며 실제 이동시간을 측정하지 않습니다.
 
 ## 무료 서버 배포

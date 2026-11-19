@@ -32,6 +32,15 @@ if(p==='/auth/kakao/callback'&&req.method==='GET'){
 }
 if(p==='/api/auth/logout'&&req.method==='POST'){const token=cookieValue(req,sessionCookie);if(token)await db.prepare('DELETE FROM auth_sessions WHERE token_hash=?').bind(await hash(token)).run();return new Response(JSON.stringify({ok:true}),{headers:{'Content-Type':'application/json','Cache-Control':'no-store','Set-Cookie':authCookie(sessionCookie,'',0)}});}
 if(p==='/api/account/rooms'&&req.method==='GET'){const user=await account(req,db);if(!user)fail('로그인 후 확인할 수 있어요.',401);const rows=await db.prepare('SELECT DISTINCT r.id FROM rooms r LEFT JOIN room_members m ON m.room_id=r.id WHERE m.user_id=? OR r.creator_user_id=? ORDER BY r.created_at DESC').bind(user.id,user.id).all();return json({ids:rows.results.map(r=>r.id)});}
+if(p==='/api/recovery/restore'&&req.method==='POST'){
+ const b=await body(req),code=typeof b.code==='string'?b.code.trim():'';
+ if(!/^[a-f0-9]{64}$/.test(code))fail('복구 코드를 확인해주세요.',403);
+ const row=await db.prepare('SELECT room_id FROM access_recovery WHERE code_hash=? AND expires_at>?').bind(await hash(code),Date.now()).first();
+ if(!row)fail('코드가 만료되었거나 이미 사용·재발급되었습니다.',403);
+ const target=new URL(req.url);target.pathname='/api/rooms/'+row.room_id+'/recovery/restore';
+ const response=await authRoutes(new Request(target,{method:'POST',headers:req.headers,body:JSON.stringify({code})}),env);
+ return json({...await response.json(),roomId:row.room_id},response.status);
+}
 const recovery=p.match(/^\/api\/rooms\/([a-f0-9-]{36})\/recovery\/(issue|restore)$/);
 if(recovery&&req.method==='POST'){
  const [,id,action]=recovery,b=await body(req),room=await db.prepare('SELECT * FROM rooms WHERE id=?').bind(id).first();

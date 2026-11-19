@@ -12,9 +12,10 @@ async function finalRoutes(req,env){
  const url=new URL(req.url),db=env.DB;
  if(url.pathname==='/api/config'&&req.method==='GET'){
   const network=await db.prepare('SELECT imported_at FROM transit_network WHERE id=1').bind().first();
-  return json({method:'AUTO_FAIRNESS',odsay:!!env.ODSAY_API_KEY,kakaoTransit:!!env.KAKAO_TRANSIT_REST_API_KEY,kakaoLocal:!!env.KAKAO_LOCAL_REST_API_KEY,naverMapClientId:env.NAVER_MAP_CLIENT_ID||'',candidateCount:100,shortlistCount:Math.max(3,Math.min(5,Number(env.SHORTLIST_COUNT)||5)),networkReady:!!network,networkImportedAt:network?.imported_at||null});
+  return json({routeApiAllowed:!pagesRequest(req,env),method:'AUTO_FAIRNESS',odsay:!!env.ODSAY_API_KEY,kakaoTransit:!!env.KAKAO_TRANSIT_REST_API_KEY,kakaoLocal:!!env.KAKAO_LOCAL_REST_API_KEY,naverMapClientId:env.NAVER_MAP_CLIENT_ID||'',candidateCount:100,shortlistCount:Math.max(3,Math.min(5,Number(env.SHORTLIST_COUNT)||5)),networkReady:!!network,networkImportedAt:network?.imported_at||null});
  }
  if(url.pathname==='/api/places'&&req.method==='GET'){
+  if(pagesRequest(req,env))fail('GitHub Pages에서는 정류장 이름 검색을 이용해주세요. 외부 API는 Render 앱에서 사용할 수 있어요.',403);
   if(!env.KAKAO_LOCAL_REST_API_KEY)fail('카카오 Local 키가 없습니다. 정류장 이름 검색은 키 없이 이용할 수 있습니다.',503);
   const query=clean(url.searchParams.get('q'),80);if(!query)fail('학교·장소 이름을 입력해주세요.');
   const target=new URL('https://dapi.kakao.com/v2/local/search/keyword.json');target.search=new URLSearchParams({query,x:'127.4',y:'36.35',radius:'20000',size:'10'}).toString();
@@ -66,6 +67,7 @@ async function finalRoutes(req,env){
  const maxIncreaseRatio=null;
  if(input.useApi!==undefined&&typeof input.useApi!=='boolean')fail('API ON/OFF 설정을 확인해주세요.');
  const useApi=input.useApi!==false,calculationMode=useApi?'api':'estimated';
+ if(useApi&&pagesRequest(req,env))fail('GitHub Pages에서는 자체 추정만 사용할 수 있어요. 경로 API 분석은 https://three-2-capston.onrender.com 에서 실행해주세요.',403);
  if(!useApi&&input.retryRunId)fail('추가 API 탐색은 ON 모드에서만 가능합니다.',409);
  const provider=useApi?(input.provider??'kakao'):'local';if(useApi&&!['kakao','odsay'].includes(provider))fail('검증 API를 선택해주세요.');
  const providerKey=provider==='kakao'?env.KAKAO_TRANSIT_REST_API_KEY:env.ODSAY_API_KEY;

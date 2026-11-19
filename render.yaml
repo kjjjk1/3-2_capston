@@ -12,6 +12,8 @@ services:
         value: 0.0.0.0
       - key: REQUIRE_REMOTE_DB
         value: "true"
+      - key: PAGES_ORIGIN
+        value: https://kjjjk1.github.io
       - key: DATABASE_URL
         sync: false
       - key: KAKAO_TRANSIT_DAILY_LIMIT

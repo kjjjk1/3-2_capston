@@ -2,12 +2,12 @@
 (()=>{
 if(new URLSearchParams(location.search).get('demo')==='1')return;
 document.body.classList.add('collab-mode');
-let CRoom=null,CDraft={name:'',stopId:null,title:'',mode:'버스만'},CEditing=true,CPicking=false,CBusy=false,CTimer=null,CError='';
+let CRoom=null,CDraft={name:'',stopId:null,title:'',mode:'통합'},CEditing=true,CPicking=false,CBusy=false,CTimer=null,CError='';
 let CId=new URLSearchParams(location.search).get('room')||'';
 const CRoot=document.createElement('div');CRoot.id='collabRoot';flowFind.prepend(CRoot);
 let CSessions={};try{CSessions=JSON.parse(localStorage.getItem('dt-sniper-room-members-v1'))||{};}catch{}
 const CToken=()=>CSessions[CId]||'';
-async function CApi(path,{method='GET',data,token=CToken()}={}){const res=await fetch('/api'+path,{method,headers:{...(data?{'Content-Type':'application/json'}:{}),...(token?{Authorization:'Bearer '+token}:{})},body:data?JSON.stringify(data):undefined});let value;try{value=await res.json();}catch{throw Error('모임 서버에 연결하지 못했어요. 온라인 공유 사이트에서 다시 열어주세요.');}if(!res.ok)throw Error(value.error||'요청에 실패했어요.');return value;}
+async function CApi(path,{method='GET',data,token=CToken()}={}){const res=await window.DTApi.request('/api'+path,{method,headers:{...(data?{'Content-Type':'application/json'}:{}),...(token?{Authorization:'Bearer '+token}:{})},body:data?JSON.stringify(data):undefined});let value;try{value=await res.json();}catch{throw Error('모임 서버에 연결하지 못했어요. 온라인 공유 사이트에서 다시 열어주세요.');}if(!res.ok)throw Error(value.error||'요청에 실패했어요.');return value;}
 function CSaveToken(id,token){CSessions[id]=token;try{localStorage.setItem('dt-sniper-room-members-v1',JSON.stringify(CSessions));}catch{toast('이 브라우저는 참여 권한 저장이 제한돼요. 창을 닫으면 내 정보에 다시 접근하지 못할 수 있어요.');}}
 function CLink(){return location.origin+location.pathname+'?room='+encodeURIComponent(CId);}
 function CApply(){if(!CRoom)return;people.splice(0,people.length,...CRoom.members.map((m,i)=>{const own=m.id===CRoom.me?.id,s=own?stopById(CRoom.me.stopId):null;return{name:m.name,id:m.id,stopId:s?.id||null,stop:s?.name||'출발지 비공개',confirmed:m.ready,color:palette[i%palette.length],pos:s?mapPos(s.lat,s.lon):[50,50]};}));mode=CRoom.mode;plannerDemo=false;}

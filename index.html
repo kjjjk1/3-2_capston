@@ -27,7 +27,7 @@
     <div class="hero"><div class="eyebrow">대전에서 만나요</div><h1>우리, 어디서 만날까요?</h1><p>각자의 출발 정류장을 알려주세요.<br>모두의 이동을 함께 생각한 만날 곳을 찾아드려요.</p></div>
     <div class="workspace"><div class="setup-column"><div class="card" id="participantsCard"><div class="card-head"><div><div class="step-label"><b>1</b> 함께할 사람</div><h2>어디서 출발하나요?</h2></div><span class="subtle" id="peopleCount">4명</span></div><div id="people"></div><button class="outline" id="addPerson">＋ 참여자 추가</button></div>
     <div class="card" id="preferencesCard"><div class="card-head"><h2>만남의 기준</h2><span class="subtle">선택 사항</span></div>
-      <div class="field"><label>교통수단</label><div class="segmented" id="modeSelect"><button class="active" data-mode="버스만">버스 중심</button><button data-mode="통합">버스+지하철</button><button data-mode="전체">전체 경로</button></div></div>
+      <div class="field"><label>교통수단</label><div class="segmented" id="modeSelect"><button data-mode="버스만">버스 중심</button><button class="active" data-mode="통합">버스+지하철</button><button data-mode="전체">전체 경로</button></div></div>
       <div style="height:14px"></div><div class="field"><label>허용 이동시간 격차</label><div class="segmented" id="gapSelect"><button data-gap="5">5분</button><button class="active" data-gap="10">10분</button><button data-gap="15">15분</button></div></div>
       <div class="toggle-row"><div class="toggle-copy"><strong>지난 모임의 부담도 반영</strong><small>과거 이동시간 기록이 다음 추천에 반영돼요.</small></div><label class="switch"><input id="fairnessToggle" aria-label="지난 모임의 부담도 반영" type="checkbox" checked><span class="slider"></span></label></div>
     </div>
@@ -106,7 +106,7 @@
     {name:'중앙로 일대',mapLabel:'중앙로',area:'중구 · 중앙로 생활권',pos:[57,33],times:[31,30,35,38,34,37],walk:[460,300,350,410,280,390],transfers:[1,1,1,1,0,1],bus:['급행 2번','102번','101번','315번','급행 1번','604번'],board:['대전대 인근','한밭대 인근','충남대 인근','우송대 인근','대전역 동광장','복합터미널'],alight:['중앙로역','중앙로역','중앙로역','중앙로역','중앙로역','중앙로역'],transferAt:['대전역 환승','시청역 환승','시청역 환승','대전역 환승','환승 없음','복합터미널 환승'],fair:[30,34,33,29,32,34]}
   );
   const palette=['#5a88b8','#dc8a4e','#4b9275','#9675b3','#b86469','#618b83'];
-  let selectedVenue=0, hiddenPeople=false, mode='버스만', allowedGap=10;
+  let selectedVenue=0, hiddenPeople=false, mode='통합', allowedGap=10;
   let activePerson=0, pendingStopId=null, locationAnchor={lat:36.335,lon:127.459}, locationRadius=500, stopMap=null, stopMarkers=null, anchorCircle=null, anchorMarker=null, pendingMapMarker=null;
   const campusExamples=[{name:'대전대학교',lat:36.335,lon:127.459},{name:'한밭대학교',lat:36.350,lon:127.300},{name:'충남대학교',lat:36.366,lon:127.344},{name:'우송대학교',lat:36.338,lon:127.445}];
   const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];

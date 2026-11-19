@@ -22,6 +22,11 @@ test('production server serves UI, rejects unknown hosts and persists rooms acro
  try{
   await start();
   assert.equal((await call('/')).status,200);
+  const pagesOrigin='https://kjjjk1.github.io';
+  const preflight=await call('/api/rooms',{method:'OPTIONS',headers:{Origin:pagesOrigin,'Access-Control-Request-Method':'POST','Access-Control-Request-Headers':'content-type,authorization,x-room-owner-token'}});
+  assert.equal(preflight.status,204);assert.equal(preflight.headers.get('access-control-allow-origin'),pagesOrigin);
+  const pagesConfig=await call('/api/config',{headers:{Origin:pagesOrigin}});assert.equal(pagesConfig.headers.get('access-control-allow-origin'),pagesOrigin);assert.equal((await pagesConfig.json()).routeApiAllowed,false);
+  assert.equal((await call('/api/config',{headers:{Origin:'https://attacker.test'}})).status,403);
   const config=await call('/api/config');assert.equal(config.status,200);const value=await config.json();assert.equal(value.networkReady,true);
   const health=await call('/healthz');assert.deepEqual(await health.json(),{status:'ok'});
   const hostStatus=await new Promise((resolve,reject)=>{http.get({host:'127.0.0.1',port,path:'/healthz',headers:{Host:'untrusted.example'}},res=>{res.resume();resolve(res.statusCode);}).on('error',reject);});assert.equal(hostStatus,403);

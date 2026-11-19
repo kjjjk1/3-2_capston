@@ -47,7 +47,8 @@ test('missing transit data is not replaced by invented routes',()=>{
 
 test('management settings distinguish ON readiness from OFF and persist explicit selection',()=>{
  const source=readFileSync('final-ui.js','utf8');const start=source.indexOf(' function settings()'),end=source.indexOf(' function stateBadge',start);
- const box={sync(){},context:()=>({members:[{id:'A',name:'A',ready:true},{id:'B',name:'B',ready:true}]}),result:null,busy:false,meetingType:'regular',provider:'kakao',useApi:true,careMemberId:'',config:{networkReady:true,kakaoTransit:false},selected:new Set(['A','B']),E:String};
+ const box={sync(){},routeApiAllowed:()=>true,context:()=>({members:[{id:'A',name:'A',ready:true},{id:'B',name:'B',ready:true}]}),result:null,busy:false,meetingType:'regular',provider:'kakao',useApi:true,careMemberId:'',config:{networkReady:true,kakaoTransit:false},selected:new Set(['A','B']),E:String};
  vm.runInNewContext(source.slice(start,end),box);assert.match(box.settings(),/id="finalApi"/);assert.match(box.settings(),/서버 키가 아직 없습니다/);
  box.useApi=false;const html=box.settings();assert.match(html,/API 미검증/);assert.match(html,/경로 API 호출은 0회/);assert.doesNotMatch(html,/서버 키가 아직 없습니다/);
+ box.routeApiAllowed=()=>false;const pagesHTML=box.settings();assert.match(pagesHTML,/id="finalApi" disabled/);assert.match(pagesHTML,/GitHub Pages에서는 자체 추정만/);assert.match(pagesHTML,/https:\/\/three-2-capston.onrender.com/);
 });

@@ -18,10 +18,11 @@ test('guest recovery preserves identity and burden, rotates access, rejects repl
  const run=crypto.randomUUID(),meeting=crypto.randomUUID();await DB.prepare('INSERT INTO analysis_runs(id,room_id,created_at,status,fingerprint) VALUES(?,?,?,?,?)').bind(run,id,Date.now(),'complete','x').run();
  await DB.prepare('INSERT INTO meeting_history(id,room_id,run_id,venue,regular,created_at,candidate_id) VALUES(?,?,?,?,?,?,?)').bind(meeting,id,run,'시청',1,new Date().toISOString(),'place').run();
  await DB.prepare('INSERT INTO burden_records(meeting_id,member_id,name,minutes,walk,transfers,relative) VALUES(?,?,?,?,?,?,?)').bind(meeting,mid,'민지',30,10,1,5).run();
- const restored=await call(base+'/restore',{code:second.code});assert.equal(restored.status,200);const next=restored.data.memberToken;
+ assert.equal((await call('/recovery/restore',{code:'invalid'})).status,403);
+ const restored=await call('/recovery/restore',{code:second.code});assert.equal(restored.data.roomId,id);assert.equal((await call('/recovery/restore',{code:second.code})).status,403);assert.equal(restored.status,200);const next=restored.data.memberToken;
  assert.equal((await call('/rooms/'+id,null,token)).data.me,null);assert.equal((await call('/rooms/'+id,null,next)).data.me.id,mid);
  assert.equal((await call(base+'/restore',{code:second.code})).status,403);assert.equal((await DB.prepare('SELECT relative FROM burden_records WHERE member_id=?').bind(mid).first()).relative,5);
- const ownCode=(await call(base+'/issue',{role:'owner'},'',owner)).data.code;const recoveredOwner=await call(base+'/restore',{code:ownCode});assert.equal(recoveredOwner.status,200);assert.equal((await call('/rooms/'+id,null,'',owner)).data.isOwner,false);assert.equal((await call('/rooms/'+id,null,'',recoveredOwner.data.ownerToken)).data.isOwner,true);
+ const ownCode=(await call(base+'/issue',{role:'owner'},'',owner)).data.code;const recoveredOwner=await call('/recovery/restore',{code:ownCode});assert.equal(recoveredOwner.data.roomId,id);assert.equal(recoveredOwner.status,200);assert.equal((await call('/rooms/'+id,null,'',owner)).data.isOwner,false);assert.equal((await call('/rooms/'+id,null,'',recoveredOwner.data.ownerToken)).data.isOwner,true);
  const expired=(await call(base+'/issue',{role:'member'},next)).data.code;await DB.prepare('UPDATE access_recovery SET expires_at=0 WHERE subject_id=?').bind(mid).run();assert.equal((await call(base+'/restore',{code:expired})).status,403);
  DB.close();
 });
