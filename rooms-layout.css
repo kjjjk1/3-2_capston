@@ -63,3 +63,31 @@
  #collabRoot.room-home-layout .room-home-hero h1{font-size:25px}
  #collabRoot .room-roster .c-members{max-height:none}
 }
+
+/* 2026-11-20: management stack and side-by-side analysis. */
+#collabRoot.room-manage-layout .room-workspace{align-items:start}
+#collabRoot .room-roster .c-members{max-height:none;overflow:visible}
+#collabRoot .room-roster .c-members>div{display:grid;grid-template-columns:32px minmax(0,1fr) auto;gap:6px 10px;align-items:center}
+#collabRoot .room-roster .person-bubble{grid-column:1;grid-row:1 / span 2}
+#collabRoot .room-roster .c-members>div>strong{grid-column:2;grid-row:1;overflow-wrap:anywhere}
+#collabRoot .room-roster .ux-member-stop{grid-column:2;grid-row:2;margin:0;min-width:0;overflow-wrap:anywhere}
+#collabRoot .room-roster .c-ready,#collabRoot .room-roster .room-pending{grid-column:3;grid-row:1;margin:0}
+#collabRoot .room-roster [data-roster-edit]{grid-column:3;grid-row:2;margin:0;padding:7px 10px;min-height:34px}
+#collabRoot .room-roster .room-person-actions{grid-column:3;grid-row:3;margin:0;justify-content:flex-end}
+#collabRoot .room-bottom{grid-template-columns:minmax(0,1fr)}
+#collabRoot .room-bottom .final-settings>.room-invite-compact{padding:16px 0!important;margin:12px 0!important;border:0;border-top:1px solid #e7edf5;border-bottom:1px solid #e7edf5;border-radius:0;box-shadow:none;background:transparent}
+#page-detail .analysis-two-column{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start;margin:18px 0}
+#page-detail .analysis-two-column>.ux-map-panel,#page-detail .analysis-summary-column>.final-result{margin:0!important;width:100%;min-width:0;max-width:none;box-sizing:border-box;padding:22px}
+#page-detail .analysis-summary-column{min-width:0}
+#page-detail .analysis-two-column .final-map{height:380px;min-height:300px}
+#page-detail .analysis-two-column .ux-map-key{display:flex;flex-wrap:wrap;gap:8px}
+#page-detail .analysis-two-column .ux-map-key>span{max-width:100%;overflow-wrap:anywhere}
+#page-detail .analysis-summary-column h2{font-size:23px;overflow-wrap:anywhere}
+#page-detail .analysis-summary-column .final-actions>*{min-width:110px}
+#page-detail .analysis-routes{margin:0 0 24px;padding:24px;min-width:0}
+#page-detail .analysis-routes>h2{font-size:21px;margin:0 0 16px}
+#page-detail .analysis-routes .journey-copy strong{overflow-wrap:anywhere}
+@media(max-width:800px){
+ #page-detail .analysis-two-column{grid-template-columns:minmax(0,1fr);gap:16px}
+ #page-detail .analysis-two-column .final-map{height:310px;min-height:240px}
+}
