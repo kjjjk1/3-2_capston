@@ -91,3 +91,23 @@
  #page-detail .analysis-two-column{grid-template-columns:minmax(0,1fr);gap:16px}
  #page-detail .analysis-two-column .final-map{height:310px;min-height:240px}
 }
+
+/* Match the roster to the origin card, with overflow confined to its list. */
+#collabRoot.room-manage-layout .room-roster{display:flex;flex-direction:column;box-sizing:border-box;min-height:0}
+#collabRoot.room-manage-layout .room-roster>.card-head,#collabRoot.room-manage-layout .room-roster>.room-roster-actions{flex:none}
+#collabRoot.room-manage-layout .room-roster .c-members{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+#collabRoot .room-invite-row #roomInviteLink{display:block;flex:1;min-width:0;padding:14px 12px;color:#1769aa;font-weight:600;font-size:14px;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#collabRoot .room-invite-row #roomInviteLink:hover{text-decoration:underline}
+#collabRoot .room-link-fallback[hidden]{display:none!important}
+#collabRoot .room-link-fallback:not([hidden]){display:block;width:100%;margin-top:8px;font-size:12px}
+#page-detail .analysis-bottom-columns{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start;margin:0 0 24px}
+#page-detail .analysis-bottom-columns .ux-alternatives,#page-detail .analysis-bottom-columns .analysis-routes{margin:0!important;min-width:0;padding:22px;box-sizing:border-box}
+#page-detail .analysis-bottom-columns .ux-alternative-options{display:flex;flex-direction:column;gap:10px}
+#page-detail .analysis-bottom-columns .ux-alternative-option{width:100%;min-width:0;box-sizing:border-box}
+#page-detail .analysis-bottom-columns .journey-person>summary{padding:14px;gap:8px}
+#page-detail .analysis-bottom-columns .journey-body{padding-left:38px;padding-right:14px}
+@media(max-width:800px){#page-detail .analysis-bottom-columns{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:700px){
+ #collabRoot.room-manage-layout .room-roster{height:auto!important}
+ #collabRoot.room-manage-layout .room-roster .c-members{flex:none;overflow:visible}
+}
