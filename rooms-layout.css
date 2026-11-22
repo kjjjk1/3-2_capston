@@ -64,6 +64,24 @@
  #collabRoot .room-roster .c-members{max-height:none}
 }
 
+.map-heading,.route-section-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.map-heading h2,.route-section-heading h2{margin:0!important;min-width:0}
+.map-heading button,.route-section-heading button{flex:none;font-size:12px;min-height:40px;padding:8px 12px;white-space:nowrap}
+#page-detail .result-link-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;flex-basis:100%;width:100%}
+#page-detail .result-link-actions>*{min-width:0;display:flex;align-items:center;justify-content:center;min-height:54px;font-size:12px;padding:10px 7px;box-sizing:border-box;text-align:center}
+.route-person-share{flex:none;font-size:11px;padding:8px!important;min-height:38px;white-space:nowrap}
+.route-share-dialog{width:min(620px,calc(100% - 32px));max-height:85vh;overflow:auto;border:0;border-radius:20px;padding:24px;background:#fff;color:#172b4d;box-sizing:border-box}
+.route-share-dialog::backdrop{background:#172b4d77}
+.route-share-dialog h2{font-size:21px;margin:0 0 14px}
+.route-share-dialog p{font-size:13px;line-height:1.7}
+.route-share-dialog textarea{display:block;box-sizing:border-box;width:100%;border:1px solid #dbe4ef;border-radius:12px;padding:14px;font:13px/1.7 system-ui,sans-serif;background:#f8fafc;color:#172b4d;resize:vertical}
+.route-share-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.route-share-actions button{min-height:44px;padding:10px 16px}
+@media(max-width:480px){.journey-person>summary{flex-wrap:wrap}.route-person-share{margin-left:auto}.route-section-heading h2{font-size:17px!important}}
+@media(min-width:701px){
+ #collabRoot.room-manage-layout .room-workspace>.room-mine{height:460px;min-height:460px;max-height:460px;overflow-y:auto;box-sizing:border-box}
+}
+
 /* 2026-11-20: management stack and side-by-side analysis. */
 #collabRoot.room-manage-layout .room-workspace{align-items:start}
 #collabRoot .room-roster .c-members{max-height:none;overflow:visible}
