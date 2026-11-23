@@ -15,6 +15,7 @@ export function selectRecommendationPolicy(candidates,regular,policy='balance',t
  const protectedRows=valid.filter(c=>targets.every(id=>{const p=c.paths.find(p=>p.memberId===id);return p&&Math.max(0,p.projected)<Math.max(0,p.past)-.01;}));
  const remaining=c=>targets.map(id=>Math.max(0,c.paths.find(p=>p.memberId===id).projected));
  protectedRows.sort((a,b)=>Math.max(...remaining(a))-Math.max(...remaining(b))||remaining(a).reduce((x,y)=>x+y,0)-remaining(b).reduce((x,y)=>x+y,0)||a.projectedStd-b.projectedStd||a.summary.average-b.summary.average||(a.candidate.id===previousCandidateId?-1:b.candidate.id===previousCandidateId?1:a.candidate.id.localeCompare(b.candidate.id)));
- const winner=protectedRows[0]||null,chosen=winner||valid.find(c=>c.candidate.id===base.efficiencyId)||null;
- return {alternatives:{fairnessId:winner?.candidate.id||null,efficiencyId:base.efficiencyId},chosen,info:{policy:'protect',status:winner?'protected':'protection_failed',met:!!winner,beforeStd,afterStd:chosen?.projectedStd??null,targetMemberIds:targets,targetNames:reference.paths.filter(p=>targets.includes(p.memberId)).map(p=>p.name)}};
+ const winner=protectedRows[0]||null,chosen=winner;
+ const protectedEfficiency=[...protectedRows].sort((a,b)=>a.summary.average-b.summary.average||a.summary.max-b.summary.max||a.candidate.id.localeCompare(b.candidate.id))[0];
+ return {alternatives:{fairnessId:winner?.candidate.id||null,efficiencyId:protectedEfficiency?.candidate.id||null},chosen,info:{policy:'protect',status:winner?'protected':'protection_failed',met:!!winner,beforeStd,afterStd:chosen?.projectedStd??null,targetMemberIds:targets,targetNames:reference.paths.filter(p=>targets.includes(p.memberId)).map(p=>p.name)}};
 }

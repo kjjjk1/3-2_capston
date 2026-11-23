@@ -7,3 +7,17 @@ test('bounded directional anchors remain distinct and within central area',()=>{
 test('shared personal winners merge and lower call budgets never create extra candidates',()=>{const rows=Array.from({length:8},(_,i)=>({candidate:{id:String(i),lat:36.32+i*.001,lon:127.39},summary:{average:20+i,max:30+i,std:1,gap:2},burdens:[0,1,2,3].map(j=>({score:20+i+j})),projectedStd:i,geo:{average:1000}}));for(const count of [3,4,5]){const chosen=chooseDiverseShortlist(rows,count,{members,origins,balances:{B:19},regular:true});assert.ok(chosen.length<=count);assert.equal(new Set(chosen.map(c=>c.candidate.id)).size,chosen.length);}});
 
 test('local research adds unique bounded candidates without enlarging API shortlist',()=>{const stops=Array.from({length:2500},(_,i)=>({id:String(i),name:'stop',lat:36.29+Math.floor(i/50)*.0012,lon:127.35+i%50*.0016}));const plan=planDiverse(origins,stops,{routes:[]},members,{B:20,A:-20},true,methodBConfig,5);assert.equal(plan.localSearch.passes.length,3);assert.ok(plan.generatedCount>100&&plan.generatedCount<=300);assert.equal(plan.localSearch.extraApiCalls,0);assert.ok(plan.shortlist.length<=5);assert.equal(new Set(plan.shortlist.map(r=>r.candidate.id)).size,plan.shortlist.length);assert.ok(plan.shortlist.every(r=>metres(r.candidate,plan.searchArea.center)<=plan.searchArea.radiusM));const casual=planDiverse(origins,stops,{routes:[]},members,{},false,methodBConfig,5);assert.equal(casual.localSearch.passes.length,1);});
+
+import {expandProtectiveSearch} from '../analysis/protective-search.mjs';
+test('protection searches beyond the central circle without altering origins or API budget',()=>{
+ const os=[{id:'a',lat:36.32,lon:127.46},{id:'b',lat:36.32,lon:127.32}],ms=[{id:'A'},{id:'B'}];
+ const stops=Array.from({length:80},(_,i)=>({id:String(i),name:'stop',lat:36.32,lon:127.32+i*.002}));
+ const network={routes:[{id:'out',direction:'out',stops:stops.map(s=>s.id)},{id:'back',direction:'back',stops:stops.map(s=>s.id).reverse()}]};
+ const cfg={...methodBConfig,includeRail:false},before=JSON.stringify(os),base=planDiverse(os,stops,network,ms,{A:30,B:-30},true,cfg,5);
+ const expanded=expandProtectiveSearch(base,os,stops,network,ms,{A:30,B:-30},cfg,5);
+ assert.equal(JSON.stringify(os),before);assert.ok(expanded.protectiveSearch.added>0);assert.ok(expanded.protectiveSearch.added<=200);assert.ok(expanded.shortlist.length<=5);
+ assert.ok(expanded.preliminaryRows.some(r=>metres(r.candidate,base.searchArea.center)>base.searchArea.radiusM));
+ assert.equal(new Set(expanded.preliminaryRows.map(r=>r.candidate.id)).size,expanded.generatedCount);
+ assert.equal(expandProtectiveSearch(base,os,stops,network,ms,{},cfg,5),base);
+ const tied=expandProtectiveSearch(base,os,stops,network,ms,{A:30,B:30},cfg,5);assert.deepEqual(tied.protectiveSearch.targetMemberIds,['A','B']);assert.equal(tied.protectiveSearch.areas.length,6);
+});
