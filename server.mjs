@@ -13,7 +13,7 @@ if(process.env.REQUIRE_REMOTE_DB==='true'&&!process.env.DATABASE_URL)throw Error
 let DB,BUCKET;
 try{if(process.env.DATABASE_URL){DB=await createPostgresDB(process.env.DATABASE_URL,{ca:process.env.DATABASE_SSL_CA});BUCKET=createPostgresBucket(DB);}else{const dataDirectory=process.env.DTS_DATA_DIR||'data';mkdirSync(dataDirectory,{recursive:true});DB=createDB(join(dataDirectory,'dt-sniper-final.sqlite'));BUCKET=createBucket(join(dataDirectory,'photos'));}}catch(error){console.error(JSON.stringify(databaseDiagnostic(error)));process.exit(1);}
 await seedNetwork(DB);
-const env={DB,BUCKET,...Object.fromEntries(['PAGES_ORIGIN','ODSAY_API_KEY','KAKAO_LOCAL_REST_API_KEY','NAVER_MAP_CLIENT_ID','ODSAY_DAILY_LIMIT','KAKAO_TRANSIT_REST_API_KEY','KAKAO_TRANSIT_DAILY_LIMIT','SHORTLIST_COUNT','KAKAO_REST_API_KEY','KAKAO_CLIENT_SECRET'].map(k=>[k,process.env[k]]))};
+const env={DB,BUCKET,...Object.fromEntries(['PAGES_ORIGIN','ODSAY_API_KEY','KAKAO_LOCAL_REST_API_KEY','NAVER_MAP_CLIENT_ID','ODSAY_DAILY_LIMIT','KAKAO_TRANSIT_REST_API_KEY','KAKAO_TRANSIT_DAILY_LIMIT','SHORTLIST_COUNT'].map(k=>[k,process.env[k]]))};
 const port=Number(process.env.PORT)||5197;
 const host=process.env.HOST||'127.0.0.1';
 const originValue=process.env.PUBLIC_ORIGIN||process.env.RENDER_EXTERNAL_URL;
