@@ -1,4 +1,4 @@
-import {expandProtectiveSearch} from './protective-search.mjs';
+import {expandProtectiveSearch,expandBalanceSearch} from './protective-search.mjs';
 import {planDiverse} from './shortlist.mjs';
 import {buildNetwork,generateCandidates,rankCandidates} from './core.mjs';
 import {summarize,rankVerified} from './fairness.mjs';
@@ -12,6 +12,7 @@ export function validateNetwork(network,stops){
 export function selectMethodB(origins,stops,network,members,balances,regular,shortlistCount=5,targetMemberId=null,recommendationPolicy='balance'){
  validateNetwork(network,stops);
  let plan=planDiverse(origins,stops,network,members,balances,regular,methodBConfig,shortlistCount,targetMemberId);
+ if(regular&&recommendationPolicy==='balance')plan=expandBalanceSearch(plan,origins,stops,network,members,balances,methodBConfig,shortlistCount);
  if(regular&&recommendationPolicy==='protect')plan=expandProtectiveSearch(plan,origins,stops,network,members,balances,methodBConfig,shortlistCount);
  return {...plan,chosen:plan.shortlist[0]||null,shortlistCount:plan.shortlist.length,eligibleCount:plan.shortlist.length,source:network.source,updatedAt:network.updatedAt,assumptions:{busSpeedKmh:methodBConfig.busSpeedKmh,walkSpeedKmh:4,defaultWaitMinutes:methodBConfig.defaultWaitMinutes},estimated:true};
 }
