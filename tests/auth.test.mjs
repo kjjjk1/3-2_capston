@@ -1,24 +1,38 @@
-import {test} from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';import vm from 'node:vm';import worker from '../dist/server/index.js';import {createDB} from '../tests-db.mjs';import {createBucket} from './bucket.mjs';
-const box={window:{}};vm.runInNewContext(readFileSync('stops_data.js','utf8'),box);const stopId=box.window.DT_SNIPER_STOPS[0].id;
-test('Kakao OAuth validates state once, stores opaque sessions, restores account membership, logout revokes session',async t=>{
- const DB=createDB(),BUCKET=createBucket(),env={DB,BUCKET,KAKAO_REST_API_KEY:'test-key',KAKAO_CLIENT_SECRET:'test-secret'};let calls=0,providerId=12345;
- t.mock.method(globalThis,'fetch',async(url,options)=>{calls++;if(url.endsWith('/oauth/token')){assert.equal(options.body.get('client_secret'),'test-secret');return Response.json({access_token:'provider-access-token'});}assert.equal(options.headers.Authorization,'Bearer provider-access-token');return Response.json({id:providerId,kakao_account:{profile:{nickname:'카카오 친구'}}});});
- async function call(path,method='GET',data,cookie='',member='',owner=''){const res=await worker.fetch(new Request('https://room.test'+path,{method,headers:{...(cookie?{cookie}:{}),...(member?{Authorization:'Bearer '+member}:{}),...(owner?{'X-Room-Owner-Token':owner}:{}),...(data?{'Content-Type':'application/json'}:{})},body:data?JSON.stringify(data):undefined}),env);return res;}
- async function login(returnTo='/?room=example'){const start=await call('/auth/kakao?returnTo='+encodeURIComponent(returnTo));assert.equal(start.status,303);const target=new URL(start.headers.get('location'));assert.equal(target.origin,'https://kauth.kakao.com');const state=target.searchParams.get('state'),cookie=start.headers.getSetCookie()[0].split(';')[0];return{state,cookie,callback:'/auth/kakao/callback?code=one-use-code&state='+state};}
- assert.equal((await call('/api/rooms','POST',{title:'no login'})).status,201);
- const first=await login();assert.equal((await call(first.callback)).headers.get('location'),'/?auth_error=invalid_state');assert.equal(calls,0);
- const logged=await call(first.callback,'GET',null,first.cookie);assert.equal(logged.headers.get('location'),'/?room=example');const set=logged.headers.getSetCookie().find(c=>c.startsWith('__Host-dts_session='));assert.match(set,/HttpOnly; Secure; SameSite=Lax/);const cookie=set.split(';')[0];
- assert.equal((await call(first.callback,'GET',null,first.cookie)).headers.get('location'),'/?auth_error=invalid_state');assert.equal(calls,2);
- const session=await(await call('/api/auth/session','GET',null,cookie)).json();assert.equal(session.user.nickname,'카카오 친구');assert.equal(JSON.stringify(session).includes('12345'),false);
- const created=await(await call('/api/rooms','POST',{title:'계정 모임'},cookie)).json(),id=created.room.id;assert.equal(created.room.isOwner,true);
- const joined=await(await call('/api/rooms/'+id+'/join','POST',{name:'카카오 친구',stopId},cookie)).json();assert.equal(joined.room.me.stopId,stopId);assert.equal(joined.room.isOwner,true);
- const roomWithoutCookie=await(await call('/api/rooms/'+id,'GET',null,'',joined.memberToken)).json();assert.equal(roomWithoutCookie.me,null);
- const next=await login('/?room='+id),relogin=await call(next.callback,'GET',null,next.cookie),secondCookie=relogin.headers.getSetCookie().find(c=>c.startsWith('__Host-dts_session=')).split(';')[0];
- const restored=await(await call('/api/rooms/'+id,'GET',null,secondCookie)).json();assert.equal(restored.me.id,joined.room.me.id);assert.deepEqual((await(await call('/api/account/rooms','GET',null,secondCookie)).json()).ids,[id]);
- providerId=67890;const other=await login(),otherLogin=await call(other.callback,'GET',null,other.cookie),otherCookie=otherLogin.headers.getSetCookie().find(c=>c.startsWith('__Host-dts_session=')).split(';')[0];assert.equal((await call('/api/rooms/'+id+'/account','POST',{},otherCookie,joined.memberToken)).status,409);
- assert.equal((await call('/api/auth/logout','POST',{},secondCookie)).status,200);assert.equal((await(await call('/api/auth/session','GET',null,secondCookie)).json()).user,null);
- const evil=await login('//evil.test/');const evilRow=await DB.prepare('SELECT return_to FROM oauth_states WHERE state_hash=?').bind(await sha(evil.state)).first();assert.equal(evilRow.return_to,'/');
- const expired=await login();await DB.prepare('UPDATE oauth_states SET expires_at=0 WHERE state_hash=?').bind(await sha(expired.state)).run();assert.equal((await call(expired.callback,'GET',null,expired.cookie)).headers.get('location'),'/?auth_error=invalid_state');DB.close();
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {DatabaseSync} from 'node:sqlite';
+import {readFileSync,readdirSync} from 'node:fs';
+import worker from '../dist/server/index.js';
+import {createDB} from '../tests-db.mjs';
+
+test('removed login routes stay unavailable and cookies cannot grant room access',async()=>{
+ const DB=createDB(),env={DB};
+ try{
+  for(const [path,method] of [['/auth/kakao','GET'],['/auth/kakao/callback','GET'],['/api/auth/session','GET'],['/api/auth/logout','POST'],['/api/account/rooms','GET']]){
+   const response=await worker.fetch(new Request('https://room.test'+path,{method}),env);
+   assert.equal(response.status,404,path);assert.equal(response.headers.get('set-cookie'),null);
+  }
+  const created=await (await worker.fetch(new Request('https://room.test/api/rooms',{method:'POST',body:JSON.stringify({title:'Token room'})}),env)).json();
+  const path='https://room.test/api/rooms/'+created.room.id;
+  const cookieOnly=await (await worker.fetch(new Request(path,{headers:{cookie:'__Host-dts_session=old-session'}}),env)).json();
+  assert.equal(cookieOnly.isOwner,false);
+  const owner=await (await worker.fetch(new Request(path,{headers:{'X-Room-Owner-Token':created.ownerToken}}),env)).json();
+  assert.equal(owner.isOwner,true);
+  const link=await worker.fetch(new Request(path+'/account',{method:'POST',body:'{}'}),env);assert.equal(link.status,404);
+ }finally{DB.close();}
 });
-async function sha(s){return Buffer.from(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s))).toString('hex');}
-test('missing Kakao configuration keeps existing app usable without pretending login works',async()=>{const DB=createDB(),env={DB,BUCKET:createBucket()};const status=await worker.fetch(new Request('https://room.test/api/auth/session'),env);assert.deepEqual(await status.json(),{configured:false,user:null});const res=await worker.fetch(new Request('https://room.test/auth/kakao'),env);assert.equal(res.headers.get('location'),'/?auth_error=not_configured');DB.close();});
+
+test('SQLite upgrade preserves linked room/member tokens and removes account data',()=>{
+ const db=new DatabaseSync(':memory:');db.exec('PRAGMA foreign_keys=ON');
+ try{
+  for(const name of readdirSync('drizzle').filter(n=>n.endsWith('.sql')&&n<'0010').sort())db.exec(readFileSync('drizzle/'+name,'utf8'));
+  db.prepare('INSERT INTO app_users VALUES(?,?,?,?)').run('user','123','nickname','today');
+  db.prepare('INSERT INTO rooms(id,title,mode,created_at,creator_user_id,roster_creator_hash) VALUES(?,?,?,?,?,?)').run('room','Room','통합','today','user','owner-hash');
+  db.prepare('INSERT INTO room_members(id,room_id,token_hash,name,stop_id,slot,user_id) VALUES(?,?,?,?,?,?,?)').run('member','room','member-hash','Name','stop',0,'user');
+  db.exec(readFileSync('drizzle/0010_remove_accounts.sql','utf8'));
+  assert.equal(db.prepare('SELECT owner_hash FROM rooms').get().owner_hash,'owner-hash');
+  assert.deepEqual({...db.prepare('SELECT id,token_hash FROM room_members').get()},{id:'member',token_hash:'member-hash'});
+  for(const table of ['app_users','auth_sessions','oauth_states'])assert.equal(db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(table),undefined);
+  assert.equal(db.prepare('PRAGMA foreign_key_check').all().length,0);
+ }finally{db.close();}
+});

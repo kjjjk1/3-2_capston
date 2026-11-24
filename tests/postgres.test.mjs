@@ -54,3 +54,20 @@ test('PostgreSQL supports participation, mocked route analysis, confirmation and
  assert.equal((await call('/rooms/'+id+'/confirm','POST',{runId:off.data.runId,candidateId:off.data.recommendedCandidateId},token)).status,201);
  const offHistory=(await call('/rooms/'+id+'/history','GET',undefined,token)).data;assert.equal(offHistory.meetings[0].calculation_mode,'estimated');
 });
+
+
+test('PostgreSQL upgrade retains existing account-linked access hashes',async t=>{
+ const engine=new PGlite();t.after(()=>engine.close());
+ await engine.exec('CREATE SCHEMA dt_sniper; SET search_path TO dt_sniper,pg_catalog');
+ for(const name of ['0001_initial.sql','0002_calculation_mode.sql'])await engine.exec(readFileSync('postgres/'+name,'utf8'));
+ await engine.exec("CREATE TABLE deployment_migrations(name TEXT PRIMARY KEY); INSERT INTO deployment_migrations VALUES ('0001_initial.sql'),('0002_calculation_mode.sql')");
+ await engine.query('INSERT INTO app_users VALUES($1,$2,$3,$4)',['user','123','name','today']);
+ await engine.query('INSERT INTO rooms(id,title,mode,created_at,creator_user_id,roster_creator_hash) VALUES($1,$2,$3,$4,$5,$6)',['room','Room','통합','today','user','owner-hash']);
+ await engine.query('INSERT INTO room_members(id,room_id,token_hash,name,stop_id,slot,user_id) VALUES($1,$2,$3,$4,$5,$6,$7)',['member','room','member-hash','Name','stop',0,'user']);
+ const query=async(sql,args)=>sql.includes(';')?(await engine.exec(sql)).at(-1):engine.query(sql,args);
+ const client={query,release(){}};const pool={query,connect:async()=>client};
+ await migratePostgres(pool);await migratePostgres(pool);
+ assert.equal((await engine.query('SELECT owner_hash FROM rooms')).rows[0].owner_hash,'owner-hash');
+ assert.deepEqual((await engine.query('SELECT id,token_hash FROM room_members')).rows[0],{id:'member',token_hash:'member-hash'});
+ assert.equal((await engine.query("SELECT tablename FROM pg_tables WHERE schemaname='dt_sniper' AND tablename IN ('app_users','auth_sessions','oauth_states')")).rows.length,0);
+});
