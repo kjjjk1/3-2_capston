@@ -22,3 +22,14 @@ test('example link prepares four real campus stops, reuses its own room and anal
 test('temporary server failures do not silently create another example room',async()=>{
  let writes=0;await assert.rejects(example.prepare({cached:{roomId:'00000000-0000-0000-0000-000000000000',ownerToken:'private'},onCreated:()=>{},request:async(path,options={})=>{if(options.method==='POST')writes++;throw Object.assign(Error('Unavailable'),{status:503});}}),/Unavailable/);assert.equal(writes,0);
 });
+
+
+test('example cache never reuses the fixed DT Sniper presentation room',async()=>{
+ const fixed='05fdf6e8-8b65-4cb3-94ae-f38a13c01cd6',separate='11111111-1111-4111-8111-111111111111',paths=[];let saved;
+ const prepared=await example.prepare({cached:{roomId:fixed,ownerToken:'old-owner'},onCreated:c=>saved=c,request:async(path,options={})=>{
+  paths.push(path);assert.ok(!path.includes(fixed));
+  if(path==='/rooms')return {room:{id:separate,members:[]},ownerToken:'new-owner'};
+  return {id:separate,members:Array.from(example.participants)};
+ }});
+ assert.equal(prepared.roomId,separate);assert.equal(saved.roomId,separate);assert.equal(paths[0],'/rooms');
+});

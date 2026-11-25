@@ -7,7 +7,7 @@
  ].map(Object.freeze));
  async function prepare({request,cached,onCreated}){
   let room=null,roomId='',ownerToken='';
-  if(cached?.roomId&&cached?.ownerToken&&/^[a-f0-9-]{36}$/.test(cached.roomId)){
+  if(cached?.roomId!=='05fdf6e8-8b65-4cb3-94ae-f38a13c01cd6'&&cached?.roomId&&cached?.ownerToken&&/^[a-f0-9-]{36}$/.test(cached.roomId)){
    roomId=cached.roomId;ownerToken=cached.ownerToken;
    try{room=await request('/rooms/'+roomId,{headers:{'X-Room-Owner-Token':ownerToken}});if(!room.isOwner){room=null;roomId='';ownerToken='';}}catch(e){if(![401,403,404].includes(e.status))throw e;room=null;roomId='';ownerToken='';}
   }
