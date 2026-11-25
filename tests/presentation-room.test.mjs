@@ -6,7 +6,7 @@ import worker from '../dist/server/index.js';
 import {createDB} from '../local-store.mjs';
 import {metres} from '../analysis/core.mjs';
 const id='05fdf6e8-8b65-4cb3-94ae-f38a13c01cd6';
-test('only the fixed presentation room exposes and edits every origin and can analyze without credentials',async t=>{
+test('every existing room exposes and edits origins and can analyze without credentials',async t=>{
  const DB=createDB();t.after(()=>DB.close());const box={window:{}};vm.runInNewContext(readFileSync('stops_data.js','utf8'),box);
  const all=box.window.DT_SNIPER_STOPS,stops=[...all].sort((a,b)=>metres(a,all[0])-metres(b,all[0])).slice(0,80);
  const network={source:'TEST',updatedAt:new Date().toISOString(),routes:[{id:'out',direction:'out',stops:stops.map(s=>s.id)},{id:'back',direction:'back',stops:stops.map(s=>s.id).reverse()}]};
@@ -18,14 +18,14 @@ test('only the fixed presentation room exposes and edits every origin and can an
  }
  let external=0;const env={DB,FETCH:async()=>{external++;throw Error('No external calls');}};
  const call=async(path,method='GET',data)=>{const response=await worker.fetch(new Request('https://server.test/api'+path,{method,headers:{'Content-Type':'application/json'},body:data===undefined?undefined:JSON.stringify(data)}),env);const text=await response.text();return {status:response.status,data:response.headers.get('content-type')?.includes('ndjson')?text.trim().split('\n').map(JSON.parse).at(-1):JSON.parse(text)};};
- const demo=(await call('/rooms/'+id)).data;assert.equal(demo.canAnalyze,true);assert.equal(demo.isOwner,false);assert.ok(demo.members.every(m=>m.canEdit&&m.editableStopId));
- const normal=(await call('/rooms/'+ordinary)).data;assert.equal(normal.canAnalyze,false);assert.ok(normal.members.every(m=>!m.canEdit&&m.editableStopId===null));
+ const demo=(await call('/rooms/'+id)).data;assert.equal(demo.canAnalyze,true);assert.equal(demo.isOwner,true);assert.ok(demo.members.every(m=>m.canEdit&&m.editableStopId));
+ const normal=(await call('/rooms/'+ordinary)).data;assert.equal(normal.canAnalyze,true);assert.ok(normal.members.every(m=>m.canEdit&&m.editableStopId));
  const original=(await DB.prepare('SELECT token_hash,managed FROM room_members WHERE id=?').bind(members[3]).first());
  assert.equal((await call('/rooms/'+id+'/participants/'+members[3],'PUT',{name:'P3',stopId:stops[8].id})).status,200);
  assert.deepEqual(await DB.prepare('SELECT token_hash,managed FROM room_members WHERE id=?').bind(members[3]).first(),original);
- assert.equal((await call('/rooms/'+ordinary+'/participants/'+normal.members[0].id,'PUT',{name:'P0',stopId:stops[9].id})).status,403);
+ assert.equal((await call('/rooms/'+ordinary+'/participants/'+normal.members[0].id,'PUT',{name:'P0',stopId:stops[9].id})).status,200);
  assert.equal((await call('/rooms/'+id+'/participants/'+normal.members[0].id,'PUT',{name:'wrong-room',stopId:stops[9].id})).status,409);
- assert.equal((await call('/rooms/'+id+'/participants/'+members[0],'DELETE')).status,403);
+ const added=await call('/rooms/'+id+'/participants','POST',{name:'temporary',stopId:stops[0].id});assert.equal(added.status,201);const temporary=added.data.members.find(m=>m.name==='temporary');assert.equal((await call('/rooms/'+id+'/participants/'+temporary.id,'DELETE')).status,200);
  assert.equal((await call('/rooms/'+id+'/history','DELETE',{all:true})).status,403);
  assert.equal((await call('/rooms/'+id+'/recovery/issue','POST',{role:'owner'})).status,403);
  const result=await call('/rooms/'+id+'/analysis','POST',{memberIds:members,meetingType:'regular',useApi:false,recommendationPolicy:'balance'});
@@ -33,11 +33,11 @@ test('only the fixed presentation room exposes and edits every origin and can an
  const choice=result.data.alternatives.fairnessId;assert.ok(choice);
  assert.equal((await call('/rooms/'+id+'/confirm','POST',{runId:result.data.runId,candidateId:choice})).status,201);
  assert.equal((await call('/rooms/'+id+'/history')).data.meetings.length,1);
- assert.equal((await call('/rooms/'+ordinary+'/analysis','POST',{})).status,403);
+ assert.equal((await call('/rooms/'+ordinary+'/analysis','POST',{})).status,400);
  const owner=await DB.prepare('SELECT owner_hash,roster_creator_hash FROM rooms WHERE id=?').bind(id).first();assert.equal(owner.owner_hash,'owner-secret-hash');assert.equal(owner.roster_creator_hash,'creator-secret-hash');
 });
 
-test('presentation readiness works without a member token and still requires all origins',()=>{
+test('shared room readiness works without a member token and still requires all origins',()=>{
  const source=readFileSync('rooms.js','utf8'),a=source.indexOf('const ready='),b=source.indexOf('function apply()',a),box={room:{me:null,isOwner:false,canAnalyze:true,members:[{ready:true},{ready:true}]}};
  vm.createContext(box);vm.runInContext(source.slice(a,b)+';globalThis.canStart=ready;',box);assert.equal(box.canStart(),true);box.room.members[1].ready=false;assert.equal(box.canStart(),false);box.room.members[1].ready=true;box.room.canAnalyze=false;assert.equal(box.canStart(),false);
 });
