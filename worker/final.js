@@ -9,7 +9,7 @@ async function finalHistory(db,id){
 async function finalFingerprint(members,ids,history,mode){return hash(JSON.stringify({members:ids.map(id=>{const m=members.find(m=>m.id===id);return [id,m?.stop_id];}),history:history.meetings.map(m=>m.id),mode}));}
 function finalPublic(payload,me){const {retryPool,...publicPayload}=payload;return {...publicPayload,alternatives:selectRecommendationPolicy(payload.candidates,payload.regular,payload.recommendationPolicy||'balance',payload.legacyPersonalCare?payload.targetMemberId:null,payload.recommendedCandidateId).alternatives,candidates:payload.candidates.map(c=>({...c,paths:c.paths.map(p=>({...p,segments:p.segments||[],firstStationMatch:p.firstStationMatch??null}))}))};}
 async function finalRoutes(req,env){
- const url=new URL(req.url),db=env.DB;
+ const url=new URL(req.url),timing=createAnalysisTimer(),db=timing.database(env.DB);
  if(url.pathname==='/api/config'&&req.method==='GET'){
   const network=await db.prepare('SELECT imported_at FROM transit_network WHERE id=1').bind().first();
   return json({routeApiAllowed:!pagesRequest(req,env),method:'AUTO_FAIRNESS',odsay:!!env.ODSAY_API_KEY,kakaoTransit:!!env.KAKAO_TRANSIT_REST_API_KEY,kakaoLocal:!!env.KAKAO_LOCAL_REST_API_KEY,naverMapClientId:env.NAVER_MAP_CLIENT_ID||'',candidateCount:100,shortlistCount:Math.max(3,Math.min(5,Number(env.SHORTLIST_COUNT)||5)),networkReady:!!network,networkImportedAt:network?.imported_at||null});
@@ -85,7 +85,7 @@ async function finalRoutes(req,env){
   if(!previousPayload.retryPool?.length)fail('추가 탐색할 새로운 후보가 없습니다.',422);
  }
 
- try{if(previousPayload)plan={...previousPayload.retryPlan,shortlist:previousPayload.retryPool.filter(r=>!previousPayload.candidates.some(c=>c.candidate.id===r.candidate.id)).slice(0,5),preliminaryRows:previousPayload.retryPool,searchArea:previousPayload.searchArea};else plan=selectMethodB(origins,finalStops,JSON.parse(networkRow.payload),selected,history.balances,regular,Number(env.SHORTLIST_COUNT)||5,targetMemberId,recommendationPolicy);}catch{fail('노선 DB의 방향·순서·정류장 매핑을 확인해주세요.',503);}
+ try{if(previousPayload)plan={...previousPayload.retryPlan,shortlist:previousPayload.retryPool.filter(r=>!previousPayload.candidates.some(c=>c.candidate.id===r.candidate.id)).slice(0,5),preliminaryRows:previousPayload.retryPool,searchArea:previousPayload.searchArea};else plan=timing.sync('candidate',()=>selectMethodB(origins,finalStops,JSON.parse(networkRow.payload),selected,history.balances,regular,Number(env.SHORTLIST_COUNT)||5,targetMemberId,recommendationPolicy));}catch{fail('노선 DB의 방향·순서·정류장 매핑을 확인해주세요.',503);}
  if(!plan.shortlist.length)fail('유효한 정류장 후보를 만들지 못했습니다. 정류장 데이터를 확인해주세요.',422);
  const initialShortlistCount=plan.shortlist.length;plan.shortlist=useApi?verificationPlan({...plan,memberIds:ids,targetMemberId},provider,history.balances,regular):localShortlist(plan,selected,Number(env.SHORTLIST_COUNT)||5);plan.shortlistCount=plan.shortlist.length;
  if(!plan.shortlist.length)fail('모든 참석자의 이동시간을 자체 추정할 수 있는 후보가 없습니다. 출발지를 확인해주세요.',422);
@@ -116,7 +116,7 @@ async function finalRoutes(req,env){
     for(let i=0;i<selected.length;i++){
      if(disconnected)break;
      const member=selected[i];processed++;if(useApi)calls++;
-     try{if(!useApi){paths.push(estimatedPaths(row,selected)[i]);}else{const route=provider==='kakao'?await verifyKakao(origins[i],candidate,providerKey,mode,env.FETCH||fetch):await verifyOdsay(origins[i],candidate,providerKey,mode,env.FETCH||fetch);paths.push({memberId:member.id,name:member.name,provider,...route,status:'verified'});}}
+     try{if(!useApi){paths.push(estimatedPaths(row,selected)[i]);}else{const route=await timing.measure('api',()=>provider==='kakao'?verifyKakao(origins[i],candidate,providerKey,mode,env.FETCH||fetch):verifyOdsay(origins[i],candidate,providerKey,mode,env.FETCH||fetch),{candidateIndex:queue.indexOf(row)+1,memberIndex:i+1});paths.push({memberId:member.id,name:member.name,provider,...route,status:'verified'});}}
      catch{paths.push({memberId:member.id,name:member.name,provider,status:'unverified',segments:[],firstStationMatch:null});}
      emit({type:'progress',message:useApi?`후보별 경로 API 비교 · ${calls}/${totalCalls}회`:`교통 DB 자체 추정 · ${processed}/${totalCalls}`,done:processed,total:totalCalls});
     }
@@ -124,6 +124,7 @@ async function finalRoutes(req,env){
     comparison.push({candidate,paths,ok,estimate:row.summary,estimatedBurdens:row.burdens,selectionReason:row.selectionReason,selectionRoles:row.selectionRoles||[row.selectionReason],modelStatus:row.status});if(ok)complete.push({candidate,paths});
    }
    if(disconnected){await db.prepare('UPDATE analysis_runs SET status=? WHERE id=?').bind('cancelled',runId).run();return;}
+   const evaluationStarted=timing.now();
    const evaluated=evaluateImprovement(complete,history.balances,ids,regular,hasFairnessHistory),ranked=evaluated.eligible;
    const best=evaluated.best,verified=!!best,baseline=complete.length?Math.min(...complete.map(c=>summarize(c.paths.map(p=>p.expectedMinutes)).average)):null;
    const selectedRow=best?comparison.find(c=>c.candidate.id===best.candidate.id):comparison[0];
@@ -145,11 +146,12 @@ async function finalRoutes(req,env){
     comparisons:comparison.map(c=>{const summary=c.ok?summarize(c.paths.map(p=>p.expectedMinutes)):null;return {id:c.candidate.id,name:c.candidate.name,participants:c.paths.map(p=>({memberId:p.memberId,name:p.name,status:p.status,expectedMinutes:['verified','estimated'].includes(p.status)?p.expectedMinutes:null,walkMetres:['verified','estimated'].includes(p.status)?p.walkMetres:null,transfers:['verified','estimated'].includes(p.status)?p.transfers:null})),status:c.ok?(useApi?'verified':'estimated'):'partial',selectionReason:c.selectionReason,selectionRoles:c.selectionRoles,modelStatus:c.modelStatus,estimatedAverage:c.estimate?.average??null,average:summary?.average??null,gap:summary?.gap??null,eligible:ranked.some(r=>r.candidate.id===c.candidate.id),selected:policySelection.chosen?.candidate.id===c.candidate.id,projectedStd:allCandidateResults.find(r=>r.candidate.id===c.candidate.id).projectedStd,fairness:allCandidateResults.find(r=>r.candidate.id===c.candidate.id).fairness};}),
     origins:selected.map((m,i)=>({memberId:m.id,name:m.name,label:String.fromCharCode(65+i),stopName:origins[i].name,lat:origins[i].lat,lon:origins[i].lon})),network:{source:plan.source,updatedAt:plan.updatedAt,assumptions:plan.assumptions},
     candidates:allCandidateResults,createdAt:started};
+   timing.add('evaluation',timing.now()-evaluationStarted);
    await db.prepare('UPDATE analysis_runs SET status=?,payload=? WHERE id=?').bind(verified?'complete':'partial',JSON.stringify(payload),runId).run();
    await db.prepare('UPDATE analysis_runs SET payload=NULL WHERE room_id=? AND created_at<? AND id<>?').bind(id,started-86400000,runId).run();
-   emit({type:'result',...finalPublic(payload,me)});
+   emit({type:'result',...finalPublic(payload,me),performance:timing.snapshot()});
   }catch{await db.prepare('UPDATE analysis_runs SET status=? WHERE id=?').bind('failed',runId).run();emit({type:'error',message:'분석을 완료하지 못했습니다. 서버 설정을 확인해주세요.'});}
-  finally{await db.prepare('DELETE FROM analysis_locks WHERE room_id=? AND started_at=?').bind(id,started).run();if(!disconnected)try{controller.close();}catch{}}
+  finally{await db.prepare('DELETE FROM analysis_locks WHERE room_id=? AND started_at=?').bind(id,started).run();try{console.info(JSON.stringify({event:'analysis_timing',runId,provider,disconnected,performance:timing.snapshot()}));}catch{}if(!disconnected)try{controller.close();}catch{}}
   })();
  },cancel(){disconnected=true;}});
  return new Response(stream,{headers:{'Content-Type':'application/x-ndjson; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
