@@ -8,7 +8,7 @@
  const context=()=>window.dtFinalContext?.();
  const panel=()=>flowDetail.querySelector('.detail-content');
  async function request(path,data,method){return window.DTApi.requestJSON('/api'+path,{method:method||(data?'POST':'GET'),headers:{...context()?.headers,...(data?{'Content-Type':'application/json'}:{})},body:data?JSON.stringify(data):undefined});}
- function automaticAnalysis(){return window.location?.hostname==='three-2-capston.onrender.com';}
+ function automaticAnalysis(){const host=window.location?.hostname||'';return host==='three-2-capston.onrender.com'||host.endsWith('.github.io');}
  function sync(){if(window.DTApi?.routeApiAllowed===false||config.routeApiAllowed===false)useApi=false;const c=context();if(!c)return;if(selectionRoom!==c.roomId){const saved=analysisPreferences[c.roomId]||{};meetingType=saved.meetingType==='casual'?'casual':'regular';provider=saved.provider==='odsay'?'odsay':'kakao';useApi=window.DTApi?.routeApiAllowed!==false&&config.routeApiAllowed!==false&&saved.useApi!==false;recommendationPolicy=saved.recommendationPolicy==='protect'?'protect':'balance';careMemberId='';selected=new Set(c.members.map(m=>m.id));selectionRoom=c.roomId;checkedCandidates.clear();result=null;confirmed=false;}else selected=new Set(c.members.map(m=>m.id));if(careMemberId&&!c.members.some(m=>m.id===careMemberId))careMemberId='';if(automaticAnalysis()){recommendationPolicy='balance';provider='kakao';useApi=routeApiAllowed();careMemberId='';}}
  function signature(){const c=context();return JSON.stringify({room:c?.roomId,members:c?.members,me:c?.stopId,selected:[...selected],meetingType,travelMode,provider,useApi,recommendationPolicy,careMemberId,maxIncreaseRatio});}
 
