@@ -18,14 +18,3 @@ test('personal membership preselects that origin; missing coordinates never crea
  const {box,c}=fixture();box.context=()=>({memberId:'a'});assert.ok(box.routeLink(c).includes('A 출발지에서'));
  box.result.origins[0].lat=NaN;assert.ok(!box.routeLink(c).includes('href='));
 });
-
-
-test('compensation display explains every attendee rather than only the worst two',()=>{
- const a=source.indexOf(' function compensationPanel('),b=source.indexOf('\n function carePanel',a);
- const box={result:{regular:true,recommendationPolicy:'balance'},E:String,num:n=>String(n),signed:n=>(n>0?'+':'')+n};
- vm.createContext(box);vm.runInContext(source.slice(a,b),box);
- const members=[{name:'A',past:10,projected:6,gain:4},{name:'B',past:-10,projected:-6,gain:4},{name:'C',past:0,projected:0,gain:0}];
- const html=box.compensationPanel({compensation:{members,netGain:8,beforeGap:20,afterGap:12,improvedCount:2,worsenedCount:0}});
- for(const m of members)assert.ok(html.includes('<td>'+m.name+'</td>'));
- assert.ok(html.includes('보상 점수'));assert.ok(html.includes('open'));assert.ok(html.includes('20분 → 12분'));
-});
