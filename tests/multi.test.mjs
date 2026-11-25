@@ -32,24 +32,24 @@ test('ODsay server cap stays 30 even when environment requests higher limit',asy
 test('automatic selection keeps the matrix and confirms only the selected eligible candidate',async t=>{const f=await fixture(t),r=await f.analyze();assert.equal(r.data.manualComparison,false);assert.equal(r.data.candidates.length,r.data.comparisons.length);assert.equal(r.data.comparisons.filter(c=>c.selected).length,1);const chosen=r.data.candidates.find(c=>c.candidate.id===r.data.recommendedCandidateId);const other=r.data.candidates.find(c=>c.candidate.id!==chosen.candidate.id);assert.equal((await f.call('/rooms/'+f.id+'/confirm','POST',{runId:r.data.runId,candidateId:other.candidate.id},f.token)).status,409);assert.ok(chosen.eligible);assert.equal(chosen.projectedStd,Math.min(...r.data.candidates.filter(c=>c.eligible).map(c=>c.projectedStd)));const count=f.calls.length;assert.equal((await f.call('/rooms/'+f.id+'/confirm','POST',{runId:r.data.runId,candidateId:chosen.candidate.id},f.token)).status,201);assert.equal(f.calls.length,count);const h=(await f.call('/rooms/'+f.id+'/history','GET',undefined,f.token)).data;assert.equal(h.meetings[0].candidate_id,chosen.candidate.id);});
 test('public configuration is available without a provider variable',async t=>{const f=await fixture(t);assert.equal((await f.call('/config')).status,200);});
 
-test('historical burden keeps weighted-region candidate in the real API matrix without extra calls',async t=>{
+test('historical burden retains compensation and regional candidate roles without extra calls',async t=>{
  const f=await fixture(t),run=crypto.randomUUID(),meeting=crypto.randomUUID();
  await f.DB.prepare('INSERT INTO analysis_runs(id,room_id,created_at,status,fingerprint) VALUES(?,?,?,?,?)').bind(run,f.id,Date.now()-300000,'complete','weighted-test').run();
  await f.DB.prepare('INSERT INTO meeting_history(id,room_id,run_id,venue,regular,created_at,candidate_id) VALUES(?,?,?,?,?,?,?)').bind(meeting,f.id,run,'previous',1,new Date(Date.now()-86400000).toISOString(),'past').run();
  for(let i=0;i<4;i++)await f.DB.prepare('INSERT INTO burden_records(meeting_id,member_id,name,minutes,walk,transfers,relative) VALUES(?,?,?,?,?,?,?)').bind(meeting,f.members[i].id,f.members[i].name,30,0,0,[5,19,-11,-12][i]).run();
- const r=await f.analyze();assert.equal(r.data.shortlistStrategy,'local_research_v9');assert.ok(r.data.candidates.some(c=>c.candidate.weightedCorrection));assert.equal(r.data.comparisons.length,5);assert.equal(f.calls.length,20);
+ const r=await f.analyze();assert.equal(r.data.shortlistStrategy,'diverse_compensation_v1');assert.ok(r.data.shortlistDiversity.roles.some(r=>r.roles.includes('compensation')));assert.equal(r.data.shortlistDiversity.roles.length,5);assert.equal(r.data.comparisons.length,5);assert.equal(f.calls.length,20);
  const h=(await f.call('/rooms/'+f.id+'/history','GET',undefined,f.token)).data;assert.equal(h.meetings.length,1);assert.equal(h.balances[f.members[1].id],19);
 });
 
 
-test('creator can delete individual/all history, recalculating burdens without deleting members',async t=>{
+test('shared visitors can delete individual/all history, recalculating burdens without deleting members',async t=>{
  const f=await fixture(t),made=await f.call('/rooms','POST',{title:'delete test'}),id=made.data.room.id,owner=made.data.ownerToken;
  const people=[];for(let i=0;i<2;i++)people.push((await f.call('/rooms/'+id+'/join','POST',{name:'P'+i,stopId:nearest[i].id})).data);
  const ids=people.map(p=>p.room.me.id);
  async function add(regular,values){const run=crypto.randomUUID(),mid=crypto.randomUUID();await f.DB.prepare('INSERT INTO analysis_runs(id,room_id,created_at,status,fingerprint,payload) VALUES(?,?,?,?,?,?)').bind(run,id,Date.now()-300000,'complete','x','{}').run();await f.DB.prepare('INSERT INTO meeting_history(id,room_id,run_id,venue,regular,created_at,candidate_id) VALUES(?,?,?,?,?,?,?)').bind(mid,id,run,'place',regular,new Date().toISOString(),'c').run();for(let i=0;i<2;i++)await f.DB.prepare('INSERT INTO burden_records VALUES(?,?,?,?,?,?,?)').bind(mid,ids[i],'P'+i,30,0,0,values[i]).run();return {mid,run};}
  const one=await add(1,[5,-5]),two=await add(1,[2,-2]);await add(0,[100,-100]);
- async function remove(data,ownerToken=owner,member=''){const r=await worker.fetch(new Request('http://localhost/api/rooms/'+id+'/history',{method:'DELETE',headers:{'Content-Type':'application/json',...(ownerToken?{'X-Room-Owner-Token':ownerToken}:{}),...(member?{Authorization:'Bearer '+member}:{})},body:JSON.stringify(data)}),f.env);return {status:r.status,data:await r.json()};}
- assert.equal((await remove({all:true},'',people[0].memberToken)).status,403);
+ async function remove(data,ownerToken='',member=''){const r=await worker.fetch(new Request('http://localhost/api/rooms/'+id+'/history',{method:'DELETE',headers:{'Content-Type':'application/json',...(ownerToken?{'X-Room-Owner-Token':ownerToken}:{}),...(member?{Authorization:'Bearer '+member}:{})},body:JSON.stringify(data)}),f.env);return {status:r.status,data:await r.json()};}
+ assert.equal((await f.call('/rooms/'+id+'/history')).data.canDelete,true);
  assert.equal((await remove({meetingIds:[crypto.randomUUID()]})).status,404);
  const partial=await remove({meetingIds:[one.mid]});assert.equal(partial.status,200);assert.equal(partial.data.deleted,1);assert.equal(partial.data.balances[ids[0]],2);assert.equal(partial.data.meetings.length,2);assert.equal((await f.DB.prepare('SELECT COUNT(*) AS n FROM burden_records WHERE meeting_id=?').bind(one.mid).first()).n,0);
  assert.equal((await f.DB.prepare('SELECT status FROM analysis_runs WHERE id=?').bind(two.run).first()).status,'invalidated');

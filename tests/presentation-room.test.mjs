@@ -30,7 +30,8 @@ test('every existing room exposes and edits origins and can analyze without cred
  assert.equal((await call('/rooms/'+ordinary+'/participants/'+normal.members[0].id,'PUT',{name:'P0',stopId:stops[9].id})).status,200);
  assert.equal((await call('/rooms/'+id+'/participants/'+normal.members[0].id,'PUT',{name:'wrong-room',stopId:stops[9].id})).status,409);
  const added=await call('/rooms/'+id+'/participants','POST',{name:'temporary',stopId:stops[0].id});assert.equal(added.status,201);const temporary=added.data.members.find(m=>m.name==='temporary');assert.equal((await call('/rooms/'+id+'/participants/'+temporary.id,'DELETE')).status,200);
- assert.equal((await call('/rooms/'+id+'/history','DELETE',{all:true})).status,403);
+ assert.equal((await call('/rooms/'+id+'/history')).data.canDelete,true);
+ assert.equal((await call('/rooms/'+id+'/history','DELETE',{all:true})).status,200);
  assert.equal((await call('/rooms/'+id+'/recovery/issue','POST',{role:'owner'})).status,403);
  const result=await call('/rooms/'+id+'/analysis','POST',{memberIds:members,meetingType:'regular',useApi:false,recommendationPolicy:'balance'});
  assert.equal(result.status,200);assert.equal(result.data.status,'estimated');assert.equal(external,0);

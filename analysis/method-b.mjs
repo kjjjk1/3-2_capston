@@ -1,5 +1,5 @@
 import {expandProtectiveSearch,expandBalanceSearch} from './protective-search.mjs';
-import {planDiverse} from './shortlist.mjs';
+import {planDiverse,attachPreliminaryContext,getPreliminaryContext} from './shortlist.mjs';
 import {buildNetwork,generateCandidates,rankCandidates} from './core.mjs';
 import {summarize,rankVerified} from './fairness.mjs';
 export const methodBConfig={candidateCount:100,centralMinRadiusM:1500,centralMaxRadiusM:4000,centralRadiusRatio:.5,includeRail:true,railTransferRadiusM:450,railEntryMinutes:3,railExitMinutes:2,burdenWeightStrength:.5,correctionAlphas:[.2,.4,.6],correctionRadiusM:1200,candidateSpacingM:180,accessRadiusM:450,transferRadiusM:150,maxTransfers:2,maxRoutes:5000,maxTotalIncreaseRatio:.30,hopWeight:1,boardingWeight:5,walkWeightPer100m:1.5,headwayWeightPerMinute:1,estimateMinutes:true,busSpeedKmh:18,defaultWaitMinutes:5};
@@ -14,5 +14,5 @@ export function selectMethodB(origins,stops,network,members,balances,regular,sho
  let plan=planDiverse(origins,stops,network,members,balances,regular,methodBConfig,shortlistCount,targetMemberId);
  if(regular&&recommendationPolicy==='balance')plan=expandBalanceSearch(plan,origins,stops,network,members,balances,methodBConfig,shortlistCount);
  if(regular&&recommendationPolicy==='protect')plan=expandProtectiveSearch(plan,origins,stops,network,members,balances,methodBConfig,shortlistCount);
- return {...plan,chosen:plan.shortlist[0]||null,shortlistCount:plan.shortlist.length,eligibleCount:plan.shortlist.length,source:network.source,updatedAt:network.updatedAt,assumptions:{busSpeedKmh:methodBConfig.busSpeedKmh,walkSpeedKmh:4,defaultWaitMinutes:methodBConfig.defaultWaitMinutes},estimated:true};
+ return attachPreliminaryContext({...plan,chosen:plan.shortlist[0]||null,shortlistCount:plan.shortlist.length,eligibleCount:plan.shortlist.length,source:network.source,updatedAt:network.updatedAt,assumptions:{busSpeedKmh:methodBConfig.busSpeedKmh,walkSpeedKmh:4,defaultWaitMinutes:methodBConfig.defaultWaitMinutes},estimated:true},getPreliminaryContext(plan));
 }
