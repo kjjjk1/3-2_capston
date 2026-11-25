@@ -35,10 +35,11 @@ export function selectRecommendationPolicy(candidates,regular,policy='balance',t
  if(policy!=='protect'&&regular&&targetMemberId){const chosen=valid.find(c=>c.candidate.id===base.fairnessId)||null;return {alternatives:base,chosen,info:{policy:'balance',status:!chosen?'unavailable':beforeStd<=.01?'balanced_start':chosen.projectedStd<beforeStd-.01?'improved':'not_improved',met:!!chosen&&chosen.projectedStd<beforeStd-.01,beforeStd,afterStd:chosen?.projectedStd??null,targetMemberIds:[]}};}
  if(policy!=='protect'||!regular){
   const ranked=regular&&beforeStd>.01?balancePreference(valid,beforeStd,previousCandidateId):valid.filter(c=>c.candidate.id===base.fairnessId);
-  const chosen=ranked[0]||null;
-  const allowed=regular&&beforeStd>.01?valid.filter(c=>c.projectedStd<beforeStd-.01):valid;
+  const chosen=ranked[0]||valid.find(c=>c.candidate.id===base.fairnessId)||null;
+  const improving=regular&&beforeStd>.01?valid.filter(c=>c.projectedStd<beforeStd-.01):valid;
+  const allowed=improving.length?improving:valid;
   const efficiency=[...allowed].sort((a,b)=>a.summary.average-b.summary.average||a.summary.max-b.summary.max||a.candidate.id.localeCompare(b.candidate.id))[0];
-  return {alternatives:{...base,fairnessId:chosen?.candidate.id||null,efficiencyId:chosen?efficiency?.candidate.id||null:null,...(base.personalId&&!allowed.some(c=>c.candidate.id===base.personalId)?{personalId:null}:{})},chosen,info:{policy:'balance',status:!chosen?'not_improved':beforeStd<=.01?'balanced_start':!regular?'casual':'improved',met:!!chosen&&regular&&chosen.projectedStd<beforeStd-.01,beforeStd,afterStd:chosen?.projectedStd??null,targetMemberIds:[],tieToleranceMinutes:balanceTieMinutes,compensationScore:chosen?compensationScore(chosen.paths):null}};
+  return {alternatives:{...base,fairnessId:chosen?.candidate.id||null,efficiencyId:chosen?efficiency?.candidate.id||null:null,...(base.personalId&&!allowed.some(c=>c.candidate.id===base.personalId)?{personalId:null}:{})},chosen,info:{policy:'balance',status:!chosen?'not_improved':beforeStd<=.01?'balanced_start':!regular?'casual':chosen.projectedStd<beforeStd-.01?'improved':'not_improved',met:!!chosen&&regular&&chosen.projectedStd<beforeStd-.01,beforeStd,afterStd:chosen?.projectedStd??null,targetMemberIds:[],tieToleranceMinutes:balanceTieMinutes,compensationScore:chosen?compensationScore(chosen.paths):null}};
  }
  const maximum=Math.max(0,...(reference?.paths||[]).map(p=>p.past));
  const targets=maximum>.01?reference.paths.filter(p=>Math.abs(p.past-maximum)<.01).map(p=>p.memberId):[];
