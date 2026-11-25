@@ -129,3 +129,10 @@
  #collabRoot.room-manage-layout .room-roster{height:auto!important}
  #collabRoot.room-manage-layout .room-roster .c-members{flex:none;overflow:visible}
 }
+
+/* Keep the route-origin picker separate from the three result action buttons. */
+#page-detail .result-link-actions>label{grid-column:1/-1;order:-1;display:grid;grid-template-columns:minmax(0,1fr);gap:8px;justify-content:stretch;text-align:left;padding:0;min-height:0;min-width:0}
+#page-detail .result-link-actions>label select{display:block;width:100%;min-width:0;max-width:100%;box-sizing:border-box;padding:12px;border:1px solid var(--line);border-radius:12px;background:#fff;color:inherit;font:inherit}
+#page-detail .analysis-summary-column .result-link-actions>*{min-width:0}
+#page-detail .result-link-actions>.quiet{white-space:normal;word-break:keep-all;overflow-wrap:anywhere}
+@media(max-width:480px){#page-detail .result-link-actions{grid-template-columns:minmax(0,1fr)}}
