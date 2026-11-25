@@ -22,7 +22,7 @@ async function finalRoutes(req,env){
   try{const r=await (env.FETCH||fetch)(target,{headers:{Authorization:'KakaoAK '+env.KAKAO_LOCAL_REST_API_KEY},signal:AbortSignal.timeout(10000),redirect:'error'});if(!r.ok)throw Error();const data=await r.json();return json({places:(data.documents||[]).map(p=>({name:p.place_name,address:p.road_address_name||p.address_name,lat:Number(p.y),lon:Number(p.x)})).filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lon))});}catch{fail('카카오 장소 검색에 실패했습니다. 키와 서비스 설정을 확인해주세요.',502);}
  }
  const match=url.pathname.match(/^\/api\/rooms\/([a-f0-9-]{36})\/(analysis|history|confirm)$/);if(!match)return undefined;
- const [,id,action]=match,room=await addonRoom(db,id);await addonOwner(req,db,room);
+ const [,id,action]=match,room=await addonRoom(db,id);if(!isPresentationRoom(id))await addonOwner(req,db,room);
  const me=await mine(req,db,id);
  if(action==='history'&&req.method==='GET')return json({...await finalHistory(db,id),canDelete:await rosterCreator(req,db,room)});
  if(action==='history'&&req.method==='DELETE'){
