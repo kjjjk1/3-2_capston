@@ -23,7 +23,7 @@ async function fixture(t){
 
 test('OFF uses actual model values, stores provenance and never reserves or calls an API',async t=>{
  const f=await fixture(t);f.env.KAKAO_TRANSIT_REST_API_KEY='configured-but-off';
- const r=await f.analyze();assert.equal(r.data.status,'estimated',JSON.stringify(r.data));assert.equal(r.data.provider,'local');assert.equal(r.data.calculationMode,'estimated');assert.equal(r.data.calls,0);assert.equal(r.data.verifiedCandidates,0);assert.ok(r.data.estimatedCandidates>0);assert.equal(r.data.estimationAccuracy,null);
+ const r=await f.analyze();assert.equal(r.data.status,'estimated',JSON.stringify(r.data));assert.equal(r.data.provider,'local');assert.equal(r.data.calculationMode,'estimated');assert.equal(r.data.calls,0);assert.equal(r.data.performance.apiRequests,0);assert.equal(r.data.performance.apiMs,0);assert.deepEqual(r.data.performance.requests,[]);assert.equal(r.data.verifiedCandidates,0);assert.ok(r.data.estimatedCandidates>0);assert.equal(r.data.estimationAccuracy,null);
  assert.equal(f.calls(),0);assert.equal((await f.DB.prepare('SELECT COUNT(*) AS n FROM provider_usage').first()).n,0);
  const c=r.data.candidates.find(c=>c.candidate.id===r.data.alternatives.fairnessId);assert.ok(c.eligible);assert.ok(c.paths.every(p=>p.status==='estimated'&&Number.isFinite(p.expectedMinutes)&&p.segments.length===0));
  assert.ok(Math.abs(c.projectedStd-Math.sqrt(c.paths.reduce((sum,p)=>sum+p.projected*p.projected,0)/4))<1e-8);
