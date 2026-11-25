@@ -1,27 +1,21 @@
 import {resultAlternatives,summarize} from './fairness.mjs';
-// Compare compensation only within half a minute of the best improving dispersion.
-export const balanceTieMinutes=.5;
-// Reward movement toward zero for every attendee, symmetrically for positive/negative history.
-// Crossing zero incurs an additional penalty; this is a preference, never a forced sign flip.
-export function compensationScore(paths){
- let weighted=0,totalWeight=0;
- for(const p of paths){
-  if(!Number.isFinite(p.past)||!Number.isFinite(p.projected))return -Infinity;
-  const weight=Math.max(1,Math.abs(p.past));
-  const overshoot=p.past*p.projected<0?Math.abs(p.projected):0;
-  weighted+=weight*(Math.abs(p.past)-Math.abs(p.projected)-overshoot);
-  totalWeight+=weight;
- }
- return totalWeight?weighted/totalWeight:0;
+// Positive/negative historical burdens are evaluated symmetrically in minutes.
+export function compensationEvaluation(paths){
+ if(!paths?.length||paths.some(p=>!Number.isFinite(p.past)||!Number.isFinite(p.projected)))return null;
+ const members=paths.map(p=>{const gain=Math.abs(p.past)-Math.abs(p.projected);return {memberId:p.memberId,name:p.name,past:p.past,projected:p.projected,gain,worsening:Math.max(0,-gain),overshoot:p.past*p.projected<0?Math.abs(p.projected):0};});
+ const before=summarize(paths.map(p=>p.past)),after=summarize(paths.map(p=>p.projected));
+ const netGain=members.reduce((sum,p)=>sum+p.gain,0),totalWorsening=members.reduce((sum,p)=>sum+p.worsening,0),overshoot=members.reduce((sum,p)=>sum+p.overshoot,0),gapIncrease=Math.max(0,after.gap-before.gap),maxWorsening=Math.max(...members.map(p=>p.worsening));
+ return {version:2,netGain,totalWorsening,maxWorsening,overshoot,beforeGap:before.gap,afterGap:after.gap,gapIncrease,score:netGain-totalWorsening-overshoot-gapIncrease,improvedCount:members.filter(p=>p.gain>.01).length,worsenedCount:members.filter(p=>p.gain<-.01).length,members};
 }
+export function compensationScore(paths){return compensationEvaluation(paths)?.score??-Infinity;}
 export function balancePreference(candidates,beforeStd,previousCandidateId=null){
- const improving=candidates.filter(c=>Number.isFinite(c.projectedStd)&&(beforeStd<=.01||c.projectedStd<beforeStd-.01));
- if(!improving.length)return [];
- const best=Math.min(...improving.map(c=>c.projectedStd));
- const relief=c=>compensationScore(c.paths);
- const near=improving.filter(c=>c.projectedStd<=best+balanceTieMinutes);
- near.sort((a,b)=>relief(b)-relief(a)||a.projectedStd-b.projectedStd||a.summary.average-b.summary.average||(a.candidate.id===previousCandidateId?-1:b.candidate.id===previousCandidateId?1:a.candidate.id.localeCompare(b.candidate.id)));
- return [...near,...improving.filter(c=>!near.includes(c)).sort((a,b)=>a.projectedStd-b.projectedStd||a.candidate.id.localeCompare(b.candidate.id))];
+ const rows=candidates.filter(c=>Number.isFinite(c.projectedStd)&&compensationEvaluation(c.paths));
+ if(!rows.length)return [];
+ const metrics=new Map(rows.map(c=>[c,compensationEvaluation(c.paths)]));
+ const safe=rows.filter(c=>metrics.get(c).maxWorsening<=.01);
+ const preferred=safe.length?safe:rows;
+ const compare=(a,b)=>{const x=metrics.get(a),y=metrics.get(b);return y.score-x.score||x.maxWorsening-y.maxWorsening||x.afterGap-y.afterGap||a.projectedStd-b.projectedStd||a.summary.average-b.summary.average||(a.candidate.id===previousCandidateId?-1:b.candidate.id===previousCandidateId?1:a.candidate.id.localeCompare(b.candidate.id));};
+ return [...preferred].sort(compare).concat(rows.filter(c=>!preferred.includes(c)).sort(compare));
 }
 export function selectRecommendationPolicy(candidates,regular,policy='balance',targetMemberId=null,previousCandidateId=null){
  const base=resultAlternatives(candidates,regular,targetMemberId);
@@ -34,12 +28,13 @@ export function selectRecommendationPolicy(candidates,regular,policy='balance',t
  if(!reference)return {alternatives:base,chosen:null,info:{policy,status:'unavailable',met:false,beforeStd:null,afterStd:null,targetMemberIds:[]}};
  if(policy!=='protect'&&regular&&targetMemberId){const chosen=valid.find(c=>c.candidate.id===base.fairnessId)||null;return {alternatives:base,chosen,info:{policy:'balance',status:!chosen?'unavailable':beforeStd<=.01?'balanced_start':chosen.projectedStd<beforeStd-.01?'improved':'not_improved',met:!!chosen&&chosen.projectedStd<beforeStd-.01,beforeStd,afterStd:chosen?.projectedStd??null,targetMemberIds:[]}};}
  if(policy!=='protect'||!regular){
-  const ranked=regular&&beforeStd>.01?balancePreference(valid,beforeStd,previousCandidateId):valid.filter(c=>c.candidate.id===base.fairnessId);
+  const hasDebt=reference.paths.some(p=>Math.abs(p.past)>.01);
+  const ranked=regular&&hasDebt?balancePreference(valid,beforeStd,previousCandidateId):valid.filter(c=>c.candidate.id===base.fairnessId);
   const chosen=ranked[0]||valid.find(c=>c.candidate.id===base.fairnessId)||null;
-  const improving=regular&&beforeStd>.01?valid.filter(c=>c.projectedStd<beforeStd-.01):valid;
-  const allowed=improving.length?improving:valid;
+  const allowed=valid;
+  const compensation=chosen?compensationEvaluation(chosen.paths):null;
   const efficiency=[...allowed].sort((a,b)=>a.summary.average-b.summary.average||a.summary.max-b.summary.max||a.candidate.id.localeCompare(b.candidate.id))[0];
-  return {alternatives:{...base,fairnessId:chosen?.candidate.id||null,efficiencyId:chosen?efficiency?.candidate.id||null:null,...(base.personalId&&!allowed.some(c=>c.candidate.id===base.personalId)?{personalId:null}:{})},chosen,info:{policy:'balance',status:!chosen?'not_improved':beforeStd<=.01?'balanced_start':!regular?'casual':chosen.projectedStd<beforeStd-.01?'improved':'not_improved',met:!!chosen&&regular&&chosen.projectedStd<beforeStd-.01,beforeStd,afterStd:chosen?.projectedStd??null,targetMemberIds:[],tieToleranceMinutes:balanceTieMinutes,compensationScore:chosen?compensationScore(chosen.paths):null}};
+  return {alternatives:{...base,fairnessId:chosen?.candidate.id||null,efficiencyId:chosen?efficiency?.candidate.id||null:null,...(base.personalId&&!allowed.some(c=>c.candidate.id===base.personalId)?{personalId:null}:{})},chosen,info:{policy:'balance',status:!chosen?'unavailable':!regular?'casual':!hasDebt?'balanced_start':compensation.netGain>.01?(compensation.worsenedCount?'partial_compensation':'compensated'):'compensation_failed',met:!!chosen&&regular&&compensation.netGain>.01&&compensation.worsenedCount===0,beforeStd,afterStd:chosen?.projectedStd??null,targetMemberIds:[],compensation,compensationScore:compensation?.score??null,stdImproved:!!chosen&&chosen.projectedStd<beforeStd-.01}};
  }
  const maximum=Math.max(0,...(reference?.paths||[]).map(p=>p.past));
  const targets=maximum>.01?reference.paths.filter(p=>Math.abs(p.past-maximum)<.01).map(p=>p.memberId):[];
