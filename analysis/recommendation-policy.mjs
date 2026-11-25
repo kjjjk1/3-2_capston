@@ -12,10 +12,9 @@ export function balancePreference(candidates,beforeStd,previousCandidateId=null)
  const rows=candidates.filter(c=>Number.isFinite(c.projectedStd)&&compensationEvaluation(c.paths));
  if(!rows.length)return [];
  const metrics=new Map(rows.map(c=>[c,compensationEvaluation(c.paths)]));
- const safe=rows.filter(c=>metrics.get(c).maxWorsening<=.01);
- const preferred=safe.length?safe:rows;
- const compare=(a,b)=>{const x=metrics.get(a),y=metrics.get(b);return y.score-x.score||x.maxWorsening-y.maxWorsening||x.afterGap-y.afterGap||a.projectedStd-b.projectedStd||a.summary.average-b.summary.average||(a.candidate.id===previousCandidateId?-1:b.candidate.id===previousCandidateId?1:a.candidate.id.localeCompare(b.candidate.id));};
- return [...preferred].sort(compare).concat(rows.filter(c=>!preferred.includes(c)).sort(compare));
+ // Cumulative dispersion is the primary objective; personal compensation only breaks exact ties.
+ const compare=(a,b)=>{const x=metrics.get(a),y=metrics.get(b);return a.projectedStd-b.projectedStd||y.score-x.score||a.summary.average-b.summary.average||(a.candidate.id===previousCandidateId?-1:b.candidate.id===previousCandidateId?1:a.candidate.id.localeCompare(b.candidate.id));};
+ return [...rows].sort(compare);
 }
 export function selectRecommendationPolicy(candidates,regular,policy='balance',targetMemberId=null,previousCandidateId=null){
  const base=resultAlternatives(candidates,regular,targetMemberId);
@@ -34,7 +33,7 @@ export function selectRecommendationPolicy(candidates,regular,policy='balance',t
   const allowed=valid;
   const compensation=chosen?compensationEvaluation(chosen.paths):null;
   const efficiency=[...allowed].sort((a,b)=>a.summary.average-b.summary.average||a.summary.max-b.summary.max||a.candidate.id.localeCompare(b.candidate.id))[0];
-  return {alternatives:{...base,fairnessId:chosen?.candidate.id||null,efficiencyId:chosen?efficiency?.candidate.id||null:null,...(base.personalId&&!allowed.some(c=>c.candidate.id===base.personalId)?{personalId:null}:{})},chosen,info:{policy:'balance',status:!chosen?'unavailable':!regular?'casual':!hasDebt?'balanced_start':compensation.netGain>.01?(compensation.worsenedCount?'partial_compensation':'compensated'):'compensation_failed',met:!!chosen&&regular&&compensation.netGain>.01&&compensation.worsenedCount===0,beforeStd,afterStd:chosen?.projectedStd??null,targetMemberIds:[],compensation,compensationScore:compensation?.score??null,stdImproved:!!chosen&&chosen.projectedStd<beforeStd-.01}};
+  return {alternatives:{...base,fairnessId:chosen?.candidate.id||null,efficiencyId:chosen?efficiency?.candidate.id||null:null,...(base.personalId&&!allowed.some(c=>c.candidate.id===base.personalId)?{personalId:null}:{})},chosen,info:{policy:'balance',status:!chosen?'unavailable':!regular?'casual':!hasDebt?'balanced_start':chosen.projectedStd<beforeStd-.01?'improved':'not_improved',met:!!chosen&&regular&&chosen.projectedStd<beforeStd-.01,beforeStd,afterStd:chosen?.projectedStd??null,targetMemberIds:[],compensation,compensationScore:compensation?.score??null,stdImproved:!!chosen&&chosen.projectedStd<beforeStd-.01}};
  }
  const maximum=Math.max(0,...(reference?.paths||[]).map(p=>p.past));
  const targets=maximum>.01?reference.paths.filter(p=>Math.abs(p.past-maximum)<.01).map(p=>p.memberId):[];
