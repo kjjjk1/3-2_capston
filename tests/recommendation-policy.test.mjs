@@ -12,9 +12,9 @@ test('a new attendee starts at zero; no positive history uses a declared balance
 test('equal retry scores retain the prior recommendation instead of switching on candidate ID',()=>{const candidates=rows([[20,35,35],[20,35,35]],{'0':10,'1':-5,'2':-5});assert.equal(selectRecommendationPolicy(candidates,true,'balance').alternatives.fairnessId,'0');assert.equal(selectRecommendationPolicy(candidates,true,'balance',null,'1').alternatives.fairnessId,'1');});
 
 
-test('balance never offers an efficiency escape when no candidate improves',()=>{
+test('balance returns the least dispersed fallback when no candidate improves',()=>{
  const selected=selectRecommendationPolicy(rows([[90,30,30]],{'0':10,'1':-5,'2':-5}),true,'balance');
- assert.equal(selected.chosen,null);assert.equal(selected.alternatives.fairnessId,null);assert.equal(selected.alternatives.efficiencyId,null);
+ assert.equal(selected.chosen.candidate.id,'0');assert.equal(selected.info.status,'not_improved');assert.equal(selected.info.met,false);assert.equal(selected.alternatives.fairnessId,'0');assert.equal(selected.alternatives.efficiencyId,'0');
 });
 
 test('near-optimal balance considers negative as well as positive historical burden',()=>{
@@ -26,10 +26,10 @@ test('near-optimal balance considers negative as well as positive historical bur
  assert.ok(selected.chosen.projectedStd<selected.info.beforeStd);
 });
 
-test('the reported extreme five-person result cannot be selected as a balance recommendation',()=>{
+test('an extreme five-person fallback is explicitly labelled as not improved',()=>{
  const candidates=rows([[73,19,65,38,41]],{'0':4,'1':-12,'2':-3,'3':8,'4':3});
  const balance=selectRecommendationPolicy(candidates,true,'balance');
- assert.equal(balance.info.status,'not_improved');assert.equal(balance.chosen,null);assert.equal(balance.alternatives.efficiencyId,null);
+ assert.equal(balance.info.status,'not_improved');assert.equal(balance.info.met,false);assert.ok(balance.chosen);assert.ok(balance.info.afterStd>balance.info.beforeStd);
  const protect=selectRecommendationPolicy(candidates,true,'protect');assert.equal(protect.info.status,'protected');
 });
 
@@ -51,7 +51,7 @@ test('equal dispersion prefers gentle compensation over crossing to the opposite
  assert.ok(compensationScore(selected.chosen.paths)>compensationScore(candidates.find(c=>c.candidate.id==='0').paths));
 });
 
-test('compensation preference cannot override the overall dispersion improvement gate',()=>{
+test('without improvement the fallback minimizes dispersion rather than compensation',()=>{
  const candidates=rows([[60,0],[0,60]],{'0':10,'1':-10});
- assert.equal(selectRecommendationPolicy(candidates,true,'balance').chosen,null);
+ const result=selectRecommendationPolicy(candidates,true,'balance');assert.equal(result.info.status,'not_improved');assert.equal(result.info.met,false);assert.equal(result.chosen.projectedStd,Math.min(...candidates.map(c=>c.projectedStd)));
 });
