@@ -23,16 +23,16 @@ test('protection searches beyond the central circle without altering origins or 
 });
 
 
-test('balance expands only when central estimates do not improve and keeps the shortlist budget',async()=>{
+test('balance expands when central estimates do not compensate and keeps the shortlist budget',async()=>{
  const {expandBalanceSearch}=await import('../analysis/protective-search.mjs');
  const os=[{id:'a',lat:36.32,lon:127.46},{id:'b',lat:36.32,lon:127.32}],ms=[{id:'A'},{id:'B'}];
  const stops=Array.from({length:80},(_,i)=>({id:String(i),name:'stop',lat:36.32,lon:127.32+i*.002}));
  const network={routes:[{id:'out',direction:'out',stops:stops.map(s=>s.id)},{id:'back',direction:'back',stops:stops.map(s=>s.id).reverse()}]};
  const cfg={...methodBConfig,includeRail:false},base=planDiverse(os,stops,network,ms,{A:30,B:-30},true,cfg,5);
- const central={...base,preliminaryRows:base.preliminaryRows.map(r=>({...r,projectedStd:100}))};
+ const central={...base,preliminaryRows:base.preliminaryRows.map(r=>({...r,summary:r.summary?{...r.summary,average:40}:null,burdens:r.burdens.map(b=>b?{...b,score:40}:null),projectedStd:30}))};
  const expanded=expandBalanceSearch(central,os,stops,network,ms,{A:30,B:-30},cfg,5);
  assert.equal(expanded.balanceSearch.expanded,true);assert.ok(expanded.balanceSearch.added>0);assert.ok(expanded.shortlist.length<=5);assert.equal(expanded.protectiveSearch,undefined);
  assert.ok(expanded.preliminaryRows.some(r=>metres(r.candidate,base.searchArea.center)>base.searchArea.radiusM));
- const improving={...base,preliminaryRows:base.preliminaryRows.map(r=>({...r,projectedStd:r.summary?1:null}))};
+ const improving={...base,preliminaryRows:base.preliminaryRows.map(r=>({...r,summary:r.summary?{...r.summary,average:30}:null,burdens:r.burdens.map((b,i)=>b?{...b,score:i?50:10}:null),projectedStd:r.summary?10:null}))};
  assert.equal(expandBalanceSearch(improving,os,stops,network,ms,{A:30,B:-30},cfg,5).balanceSearch.expanded,false);
 });

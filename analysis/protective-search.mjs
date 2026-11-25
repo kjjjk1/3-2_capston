@@ -1,5 +1,5 @@
 import {summarize} from './fairness.mjs';
-import {balancePreference} from './recommendation-policy.mjs';
+import {balancePreference,compensationEvaluation} from './recommendation-policy.mjs';
 import {metres,buildNetwork} from './core.mjs';
 import {evaluatePreliminary} from './shortlist.mjs';
 // Expand from the original centre toward every participant tied for maximum debt.
@@ -32,7 +32,7 @@ export function expandBalanceSearch(plan,origins,stops,network,members,balances,
  const before=summarize(members.map(m=>balances[m.id]||0)).std;
  if(before<=.01)return plan;
  const modeled=rows=>rows.filter(r=>r.summary&&r.burdens?.every(Boolean)).map(r=>({...r,paths:r.burdens.map((b,i)=>({past:balances[members[i].id]||0,projected:(balances[members[i].id]||0)+b.score-r.summary.average}))}));
- const central=forceExpansion?[]:balancePreference(modeled(plan.preliminaryRows),before);
+ const central=forceExpansion?[]:modeled(plan.preliminaryRows).filter(r=>{const c=compensationEvaluation(r.paths);return c.netGain>.01&&c.maxWorsening<=.01&&c.afterGap<=c.beforeGap+.01;});
  let expanded=plan,rows=plan.preliminaryRows;
  if(!central.length){expanded=expandProtectiveSearch(plan,origins,stops,network,members,balances,cfg,count);rows=expanded.preliminaryRows;}
  const known=modeled(rows),ranked=balancePreference(known,before);
@@ -45,5 +45,5 @@ export function expandBalanceSearch(plan,origins,stops,network,members,balances,
  // Preserve the diverse central shortlist when it already contains improving options.
  if(central.length)plan.shortlist.forEach(add);
  ordered.forEach(add);
- return {...plan,shortlist:selected,preliminaryRows:rows,generatedCount:rows.length,reachableCount:rows.filter(r=>r.summary).length,unknownCount:rows.filter(r=>!r.summary).length,balanceSearch:{expanded:expanded!==plan,added:rows.length-plan.preliminaryRows.length,improvingCount:ranked.length,stage:central.length?'central':ranked.length?'directional':'no_estimated_improvement'}};
+ return {...plan,shortlist:selected,preliminaryRows:rows,generatedCount:rows.length,reachableCount:rows.filter(r=>r.summary).length,unknownCount:rows.filter(r=>!r.summary).length,balanceSearch:{expanded:expanded!==plan,added:rows.length-plan.preliminaryRows.length,compensatingCount:ranked.filter(r=>compensationEvaluation(r.paths).netGain>.01).length,stage:central.length?'central':ranked.some(r=>compensationEvaluation(r.paths).netGain>.01)?'directional':'no_estimated_compensation'}};
 }
