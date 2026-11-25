@@ -1,3 +1,5 @@
+import {summarize} from './fairness.mjs';
+import {balancePreference} from './recommendation-policy.mjs';
 import {metres,buildNetwork} from './core.mjs';
 import {evaluatePreliminary} from './shortlist.mjs';
 // Expand from the original centre toward every participant tied for maximum debt.
@@ -23,4 +25,25 @@ export function expandProtectiveSearch(plan,origins,stops,network,members,balanc
  const shortlist=pool.slice(0,Math.max(1,Math.min(5,count))).map(r=>({...r,selectionReason:'maximum_burden_protection'}));
  return {...plan,shortlist,preliminaryRows:rows,generatedCount:rows.length,reachableCount:rows.filter(r=>r.summary).length,unknownCount:rows.filter(r=>!r.summary).length,
  protectiveSearch:{targetMemberIds:targets.map(t=>t.id),areas,expanded:true,added:extra.length,centralProtectiveCount:central.length,protectiveCount:protectedRows.length,stage:central.length?'central':protectedRows.length?'directional':'no_estimated_protection'}};
+}
+
+// Expansion changes candidate coverage, never the original participant coordinates.
+export function expandBalanceSearch(plan,origins,stops,network,members,balances,cfg,count=5,forceExpansion=false){
+ const before=summarize(members.map(m=>balances[m.id]||0)).std;
+ if(before<=.01)return plan;
+ const modeled=rows=>rows.filter(r=>r.summary&&r.burdens?.every(Boolean)).map(r=>({...r,paths:r.burdens.map((b,i)=>({past:balances[members[i].id]||0,projected:(balances[members[i].id]||0)+b.score-r.summary.average}))}));
+ const central=forceExpansion?[]:balancePreference(modeled(plan.preliminaryRows),before);
+ let expanded=plan,rows=plan.preliminaryRows;
+ if(!central.length){expanded=expandProtectiveSearch(plan,origins,stops,network,members,balances,cfg,count);rows=expanded.preliminaryRows;}
+ const known=modeled(rows),ranked=balancePreference(known,before);
+ const fallback=[...known].sort((a,b)=>a.projectedStd-b.projectedStd||a.summary.average-b.summary.average||a.candidate.id.localeCompare(b.candidate.id));
+ const ordered=ranked.length?ranked:fallback;
+ if(!ordered.length)return {...plan,balanceSearch:{expanded:expanded!==plan,improvingCount:0}};
+ const selected=[],seen=new Set();
+ const add=r=>{if(r&&!seen.has(r.candidate.id)&&selected.length<Math.max(1,Math.min(5,count))){seen.add(r.candidate.id);selected.push({...r,selectionReason:'cumulative_balance',selectionRoles:['cumulative_balance']});}};
+ add(ordered[0]);
+ // Preserve the diverse central shortlist when it already contains improving options.
+ if(central.length)plan.shortlist.forEach(add);
+ ordered.forEach(add);
+ return {...plan,shortlist:selected,preliminaryRows:rows,generatedCount:rows.length,reachableCount:rows.filter(r=>r.summary).length,unknownCount:rows.filter(r=>!r.summary).length,balanceSearch:{expanded:expanded!==plan,added:rows.length-plan.preliminaryRows.length,improvingCount:ranked.length,stage:central.length?'central':ranked.length?'directional':'no_estimated_improvement'}};
 }

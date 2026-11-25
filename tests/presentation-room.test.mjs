@@ -20,6 +20,10 @@ test('every existing room exposes and edits origins and can analyze without cred
  const call=async(path,method='GET',data)=>{const response=await worker.fetch(new Request('https://server.test/api'+path,{method,headers:{'Content-Type':'application/json'},body:data===undefined?undefined:JSON.stringify(data)}),env);const text=await response.text();return {status:response.status,data:response.headers.get('content-type')?.includes('ndjson')?text.trim().split('\n').map(JSON.parse).at(-1):JSON.parse(text)};};
  const demo=(await call('/rooms/'+id)).data;assert.equal(demo.canAnalyze,true);assert.equal(demo.isOwner,true);assert.ok(demo.members.every(m=>m.canEdit&&m.editableStopId));
  const normal=(await call('/rooms/'+ordinary)).data;assert.equal(normal.canAnalyze,true);assert.ok(normal.members.every(m=>m.canEdit&&m.editableStopId));
+ const renamed=await call('/rooms/'+id+'/settings','PUT',{title:'이름 변경 시연'});assert.equal(renamed.status,200);assert.equal(renamed.data.id,id);assert.equal(renamed.data.title,'이름 변경 시연');assert.equal(renamed.data.mode,'통합');assert.equal(renamed.data.members.length,5);
+ assert.equal((await call('/rooms/'+id+'/settings','PUT',{title:'  '})).status,400);
+ assert.equal((await call('/rooms/'+ordinary+'/settings','PUT',{mode:'버스만'})).status,200);
+ assert.equal((await call('/rooms/'+ordinary)).data.title,'room');
  const original=(await DB.prepare('SELECT token_hash,managed FROM room_members WHERE id=?').bind(members[3]).first());
  assert.equal((await call('/rooms/'+id+'/participants/'+members[3],'PUT',{name:'P3',stopId:stops[8].id})).status,200);
  assert.deepEqual(await DB.prepare('SELECT token_hash,managed FROM room_members WHERE id=?').bind(members[3]).first(),original);
