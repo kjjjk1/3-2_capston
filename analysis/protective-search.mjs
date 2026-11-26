@@ -35,11 +35,7 @@ export function expandBalanceSearch(plan,origins,stops,network,members,balances,
  const modeled=rows=>rows.filter(r=>r.summary&&r.burdens?.every(Boolean)).map(r=>({...r,paths:r.burdens.map((b,i)=>({past:balances[members[i].id]||0,projected:(balances[members[i].id]||0)+b.score-r.summary.average}))}));
  const central=forceExpansion?[]:modeled(plan.preliminaryRows).filter(r=>{const c=compensationEvaluation(r.paths);return c.netGain>.01&&c.maxWorsening<=.01&&c.afterGap<=c.beforeGap+.01;});
  let expanded=plan,rows=plan.preliminaryRows;
- if(before>.01){
-  expanded=expandProtectiveSearch(plan,origins,stops,network,members,balances,cfg,count);rows=expanded.preliminaryRows;
-  const context=getPreliminaryContext(expanded)||getPreliminaryContext(plan),seen=new Set(rows.map(r=>r.candidate.id));
-  if(context){const additional=stops.filter(s=>!seen.has(s.id)).map(s=>({...s,seed:'citywide_balance'}));rows=[...rows,...evaluatePreliminary(origins,additional,context.graph,cfg,members,balances,true,context)];}
- }
+ if(!central.length){expanded=expandProtectiveSearch(plan,origins,stops,network,members,balances,cfg,count);rows=expanded.preliminaryRows;}
  const known=modeled(rows),ranked=balancePreference(known,before);
  const fallback=[...known].sort((a,b)=>a.projectedStd-b.projectedStd||a.summary.average-b.summary.average||a.candidate.id.localeCompare(b.candidate.id));
  const ordered=ranked.length?ranked:fallback;

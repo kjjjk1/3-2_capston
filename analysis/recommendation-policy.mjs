@@ -12,10 +12,8 @@ export function balancePreference(candidates,beforeStd,previousCandidateId=null)
  const rows=candidates.filter(c=>Number.isFinite(c.projectedStd)&&compensationEvaluation(c.paths));
  if(!rows.length)return [];
  const metrics=new Map(rows.map(c=>[c,compensationEvaluation(c.paths)]));
- // Smooth minimax: cubic absolute burden penalizes extreme individual debt without ignoring the rest.
- const worst=c=>Math.max(...c.paths.map(p=>Math.abs(p.projected)));
- const individualCost=c=>c.paths.reduce((sum,p)=>sum+Math.abs(p.projected)**3,0);
- const compare=(a,b)=>{const x=metrics.get(a),y=metrics.get(b);return individualCost(a)-individualCost(b)||worst(a)-worst(b)||a.projectedStd-b.projectedStd||x.maxWorsening-y.maxWorsening||a.summary.average-b.summary.average||(a.candidate.id===previousCandidateId?-1:b.candidate.id===previousCandidateId?1:a.candidate.id.localeCompare(b.candidate.id));};
+ // Cumulative dispersion is the primary objective; personal compensation only breaks exact ties.
+ const compare=(a,b)=>{const x=metrics.get(a),y=metrics.get(b);return a.projectedStd-b.projectedStd||y.score-x.score||a.summary.average-b.summary.average||(a.candidate.id===previousCandidateId?-1:b.candidate.id===previousCandidateId?1:a.candidate.id.localeCompare(b.candidate.id));};
  return [...rows].sort(compare);
 }
 // Secondary alternative: jointly compensate the most burdened and most favoured attendees.
