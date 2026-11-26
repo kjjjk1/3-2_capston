@@ -16,6 +16,18 @@ export function balancePreference(candidates,beforeStd,previousCandidateId=null)
  const compare=(a,b)=>{const x=metrics.get(a),y=metrics.get(b);return a.projectedStd-b.projectedStd||y.score-x.score||a.summary.average-b.summary.average||(a.candidate.id===previousCandidateId?-1:b.candidate.id===previousCandidateId?1:a.candidate.id.localeCompare(b.candidate.id));};
  return [...rows].sort(compare);
 }
+// Secondary alternative: jointly compensate the most burdened and most favoured attendees.
+export function minimaxCompensationAlternative(candidates){
+ const valid=candidates.filter(c=>c.summary&&c.paths?.length&&c.eligible!==false);
+ if(!valid.length)return null;
+ const past=valid[0].paths,max=Math.max(...past.map(p=>p.past)),min=Math.min(...past.map(p=>p.past));
+ if(max<=.01||min>=-.01)return null;
+ const targets=past.filter(p=>Math.abs(p.past-max)<.01||Math.abs(p.past-min)<.01).map(p=>p.memberId);
+ const cap=Math.max(Math.abs(max),Math.abs(min));
+ const acceptable=valid.filter(c=>targets.every(id=>{const p=c.paths.find(p=>p.memberId===id);return p&&Math.abs(p.projected)<Math.abs(p.past)-.01;})&&c.paths.every(p=>targets.includes(p.memberId)||Math.abs(p.projected)<=Math.max(Math.abs(p.past),cap)+.01));
+ const worst=c=>Math.max(...c.paths.filter(p=>targets.includes(p.memberId)).map(p=>Math.abs(p.projected)));
+ return [...acceptable].sort((a,b)=>worst(a)-worst(b)||a.projectedStd-b.projectedStd||a.summary.average-b.summary.average||a.candidate.id.localeCompare(b.candidate.id))[0]||null;
+}
 export function selectRecommendationPolicy(candidates,regular,policy='balance',targetMemberId=null,previousCandidateId=null){
  const base=resultAlternatives(candidates,regular,targetMemberId);
  const old=candidates.find(c=>c.candidate.id===previousCandidateId&&c.eligible!==false&&c.summary),fair=candidates.find(c=>c.candidate.id===base.fairnessId),fast=candidates.find(c=>c.candidate.id===base.efficiencyId);
@@ -32,7 +44,7 @@ export function selectRecommendationPolicy(candidates,regular,policy='balance',t
   const chosen=ranked[0]||valid.find(c=>c.candidate.id===base.fairnessId)||null;
   const allowed=valid;
   const compensation=chosen?compensationEvaluation(chosen.paths):null;
-  const efficiency=[...allowed].sort((a,b)=>a.summary.average-b.summary.average||a.summary.max-b.summary.max||a.candidate.id.localeCompare(b.candidate.id))[0];
+  const efficiency=minimaxCompensationAlternative(allowed);
   return {alternatives:{...base,fairnessId:chosen?.candidate.id||null,efficiencyId:chosen?efficiency?.candidate.id||null:null,...(base.personalId&&!allowed.some(c=>c.candidate.id===base.personalId)?{personalId:null}:{})},chosen,info:{policy:'balance',status:!chosen?'unavailable':!regular?'casual':!hasDebt?'balanced_start':chosen.projectedStd<beforeStd-.01?'improved':'not_improved',met:!!chosen&&regular&&chosen.projectedStd<beforeStd-.01,beforeStd,afterStd:chosen?.projectedStd??null,targetMemberIds:[],compensation,compensationScore:compensation?.score??null,stdImproved:!!chosen&&chosen.projectedStd<beforeStd-.01}};
  }
  const maximum=Math.max(0,...(reference?.paths||[]).map(p=>p.past));
